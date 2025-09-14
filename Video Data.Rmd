@@ -26,33 +26,7 @@ video_events %>%
        y = "Count") +
   theme_minimal()
 
-for (i in seq_len(nrow(video_events))) {
-  if (video_events$time_of_day[i] == "pm") {
-    x <- video_events$video_code[i] %% 10
-    if (x != 2) {
-      if (video_events$event_type[i] != "Feed"){
-      print(video_events$video_code[i])}
-    }
-  }
-}
 
-#code to count the number of feed events that happen during am period and report them
-feed_events_am <- video_events %>%
-  filter(event_type == "Feed" & time_of_day == "am") %>%
-  nrow()
-
-feed_events_pm <- video_events %>%
-  filter(event_type == "Feed" & time_of_day == "pm") %>%
-  nrow()
-
-#code to find duplicate video codes in feed_events_am
-duplicate_feed_events_am <- video_events %>%
-  filter(event_type == "Feed" & time_of_day == "am") %>%
-  group_by(video_code) %>%
-  filter(n() > 1) %>%
-  distinct(video_code)
-
-#code to create a line graph showing mortalities recorded as events over time for each camera
     
 
 ```
