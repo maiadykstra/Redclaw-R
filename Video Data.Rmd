@@ -49,3 +49,21 @@ group_by(event_type, time_of_day) %>%
 
 
 ```
+
+
+```{r}
+
+#create bar chart total cannibalism morts by moult stage
+video_events %>%
+group_by(event_type, mort_moult_stage, time_of_day) %>%
+  filter(mort_moult_stage != "NA") %>%
+  summarize(count = n()) %>%
+  ggplot(aes(x = mort_moult_stage, y = count, fill = time_of_day)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Cannibalism Events by Moult Stage",
+       x = "Event",
+       y = "Count") +
+  theme_minimal()
+
+
+```
