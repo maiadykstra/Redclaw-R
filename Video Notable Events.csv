@@ -74,7 +74,7 @@
 72631,26-Jul-25,4,3,am,21:17,Mortality,Cannibalism,Post-moult,NA,
 72631,26-Jul-25,4,3,pm,24:02:00,Feed,NA,NA,NA,
 72632,26-Jul-25,4,3,pm,3:01,Moult,NA,NA,yes,
-72632,26-Jul-25,4,3,pm,3:01,Mortality,Cannibalism,Post-Moult,NA,moult and immediate mortality
+72632,26-Jul-25,4,3,pm,3:01,Mortality,Cannibalism,Post-moult,NA,moult and immediate mortality
 72641,26-Jul-25,4,4,am,0:22,Feed,NA,NA,NA,
 72641,26-Jul-25,4,4,pm,24:00:00,Feed,NA,NA,NA,
 72642,26-Jul-25,4,4,pm,16:46,Moult,NA,NA,yes,
@@ -85,7 +85,7 @@
 72721,27-Jul-25,5,2,pm,23:50,Feed,NA,NA,NA,
 72722,27-Jul-25,5,2,pm,10:34,Moult,NA,NA,yes,
 72722,27-Jul-25,5,2,pm,20:01,Moult,NA,NA,yes,
-72722,27-Jul-25,5,2,pm,20:01,Mortality,Cannibalism,Post-Moult,NA,
+72722,27-Jul-25,5,2,pm,20:01,Mortality,Cannibalism,Post-moult,NA,
 72731,27-Jul-25,5,3,am,0:29,Feed,NA,NA,NA,
 72731,27-Jul-25,5,3,am,13:37,Moult,NA,NA,yes,
 72731,27-Jul-25,5,3,pm,23:49,Feed,NA,NA,NA,
@@ -96,9 +96,9 @@
 72811,28-Jul-25,6,1,am,0:23,Feed,NA,NA,NA,
 72811,28-Jul-25,6,1,pm,24:03:00,Feed,NA,NA,NA,
 72812,28-Jul-25,6,1,pm,17:23,Moult,NA,NA,yes,
-72812,28-Jul-25,6,1,pm,17:23,Mortality,Cannibalism,Post-Moult,NA,
+72812,28-Jul-25,6,1,pm,17:23,Mortality,Cannibalism,Post-moult,NA,
 72812,28-Jul-25,6,1,pm,21:03,Moult,NA,NA,yes,
-72812,28-Jul-25,6,1,pm,21:20,Mortality,Cannibalism,Post-Moult,NA,
+72812,28-Jul-25,6,1,pm,21:20,Mortality,Cannibalism,Post-moult,NA,
 72821,28-Jul-25,6,2,am,0:20,Feed,NA,NA,NA,
 72821,28-Jul-25,6,2,pm,23:59,Feed,NA,NA,NA,
 72831,28-Jul-25,6,3,am,0:17,Feed,NA,NA,NA,
@@ -107,7 +107,7 @@
 72841,28-Jul-25,6,4,am,19:21,Moult,NA,NA,yes,
 72841,28-Jul-25,6,4,am,21:21,Moult,NA,NA,yes,
 72841,28-Jul-25,6,4,am,21:44,Moult,NA,NA,yes,
-72841,28-Jul-25,6,4,am,21:46,Mortality,Cannibalism,Post-Moult,NA,
+72841,28-Jul-25,6,4,am,21:46,Mortality,Cannibalism,Post-moult,NA,
 72841,28-Jul-25,6,4,pm,23:56,Feed,NA,NA,NA,
 72911,29-Jul-25,7,1,am,0:44,Feed,NA,NA,NA,
 72911,29-Jul-25,7,1,pm,24:00:00,Feed,NA,NA,NA,
@@ -171,7 +171,7 @@
 80221,2-Aug-25,11,2,am,8:06,Moult,NA,NA,yes,
 80221,2-Aug-25,11,2,pm,23:57,Feed,NA,NA,NA,
 80231,2-Aug-25,11,3,am,0:26,Feed,NA,NA,NA,
-80231,2-Aug-25,11,3,am,4:28,Mortality,Cannibalism,Pre-Moult,NA,"Animal known to be pre-moult via gastrolith visibility, attacked prior to attempting to moult, proceeds to struggle attempting to moult several times before it is attacked by several animals and dies. "
+80231,2-Aug-25,11,3,am,4:28,Mortality,Cannibalism,Pre-moult,NA,"Animal known to be pre-moult via gastrolith visibility, attacked prior to attempting to moult, proceeds to struggle attempting to moult several times before it is attacked by several animals and dies. "
 80231,2-Aug-25,11,3,pm,23:55,Feed,NA,NA,NA,
 80241,2-Aug-25,11,4,am,0:25,Feed,NA,NA,NA,
 80241,2-Aug-25,11,4,pm,23:54,Feed,NA,NA,NA,
@@ -315,7 +315,7 @@
 81411,14-Aug-25,23,1,pm,24:07:00,Feed,NA,NA,NA,
 81421,14-Aug-25,23,2,am,0:27,Feed,NA,NA,NA,
 81421,14-Aug-25,23,2,am,8:15,Moult,NA,NA,yes,
-81421,14-Aug-25,23,2,am,12:22,Mortality,Cannibalism,Post-Moult,NA,Animal was attacked multiple times prior to actually dying
+81421,14-Aug-25,23,2,am,12:22,Mortality,Cannibalism,Post-moult,NA,Animal was attacked multiple times prior to actually dying
 81421,14-Aug-25,23,2,pm,24:04:00,Feed,NA,NA,NA,
 81431,14-Aug-25,23,3,am,0:25,Feed,NA,NA,NA,
 81431,14-Aug-25,23,3,pm,24:05:00,Feed,NA,NA,NA,

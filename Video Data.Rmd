@@ -13,7 +13,7 @@ no_event_vids <- read_csv("No Event Videos.csv")
 video_times <- read_csv("Video Start and Stop Times.csv")
 ```
 
-Play around
+### Bar Graphs ###
 ```{r}
 #create bar chart showing notable events sans test times and feeds accross all cams
 video_events %>%
@@ -29,8 +29,6 @@ video_events %>%
   theme_minimal()
 
 ```
-
-
 
 ```{r}
 
@@ -50,13 +48,13 @@ group_by(event_type, time_of_day) %>%
 
 ```
 
-
 ```{r}
 
 #create bar chart total cannibalism morts by moult stage
 video_events %>%
 group_by(event_type, mort_moult_stage, time_of_day) %>%
   filter(mort_moult_stage != "NA") %>%
+  filter(mort_cause == "Cannibalism") %>%
   summarize(count = n()) %>%
   ggplot(aes(x = mort_moult_stage, y = count, fill = time_of_day)) +
   geom_bar(stat = "identity", position = "dodge") +
@@ -65,5 +63,38 @@ group_by(event_type, mort_moult_stage, time_of_day) %>%
        y = "Count") +
   theme_minimal()
 
+
+```
+Having the one 'moulting' bar is really ugly and hard to interpret, maybe should go back and re-watch, classify as either pre, post or unkown. I remeber that vid and it is weird
+
+
+```{r}
+# Moults over the full experiment
+moult_tally <- video_events %>%
+  filter(event_type == "Moult") %>%   
+  group_by(day_number, camera, time_of_day) %>%
+  summarise(count = n(), .groups = "drop")
+
+ggplot(moult_tally, aes(x = day_number, y = count)) +
+  geom_col(position = "dodge") +
+  labs(
+    title = "Moults by Day",
+    x = "Day",
+    y = "Moults",
+    color = "Camera Number"
+  ) +
+  theme_minimal()
+```
+
+Fucking about with boxplots
+```{r}
+
+moult_count <- video_events %>%
+  filter(event_type == "Moult") %>%
+  group_by(camera, time_of_day) %>%
+  summarize(count = n(), .groups = "drop")
+
+ggplot(moult_count, aes(x = time_of_day , y = count, )) +
+  geom_boxplot()
 
 ```
