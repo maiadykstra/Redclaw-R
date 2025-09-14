@@ -15,18 +15,37 @@ video_times <- read_csv("Video Start and Stop Times.csv")
 
 Play around
 ```{r}
-#create bar chart showing notable events in both AM and PM
+#create bar chart showing notable events sans test times and feeds accross all cams
 video_events %>%
-  group_by(event_type, time_of_day) %>%
+  group_by(event_type, camera) %>%
+  filter(event_type != "Test") %>%
+  filter(event_type != "Feed") %>%
   summarize(count = n()) %>%
-  ggplot(aes(x = event_type, y = count, fill = time_of_day)) +
+  ggplot(aes(x = event_type, y = count, fill = factor(camera))) +
   geom_bar(stat = "identity", position = "dodge") +
-  labs(title = "Notable Events by Time of Day",
+  labs(title = "Notable Events by Camera",
        x = "Event",
        y = "Count") +
   theme_minimal()
 
+```
 
-    
+
+
+```{r}
+
+#create bar chart showing notable events sans test by time of day
+video_events %>%
+group_by(event_type, time_of_day) %>%
+  filter(event_type != "Test") %>%
+  filter(event_type != "Feed") %>%
+  summarize(count = n()) %>%
+  ggplot(aes(x = event_type, y = count, fill = time_of_day)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Notable Events by Camera",
+       x = "Event",
+       y = "Count") +
+  theme_minimal()
+
 
 ```
