@@ -195,3 +195,32 @@ acf_data <- events_binned %>% filter(camera.x == cam_example, event_type == even
 
 acf(acf_data$count, main = paste("ACF - Tank", cam_example, "-", event_example))
 ```
+
+testing circ stats chattage, also a bit fucked
+```{r}
+library(circular)
+
+events_circ <- realtime_events %>%
+  mutate(
+    hour_decimal = hour(event_true_datetime) + minute(event_true_datetime)/60,
+    angle_rad = 2 * pi * hour_decimal / 24,
+    angle_circular = circular(angle_rad, units = "radians")
+  )
+
+# Test for clustering (Rayleigh test) by tank and event_type
+rayleigh_results <- events_circ %>%
+  group_by(camera.x, event_type) %>%
+  summarise(
+    rayleigh_p = rayleigh.test(angle_circular)$p.value,
+    mean_angle = mean.circular(angle_circular),
+    .groups = "drop"
+  )
+
+# Compare mean angles between treatments (Watson–Williams test)
+# Ensure treatment column exists
+watson_results <- watson.williams.test(angle_circular ~ event_type, data = events_circ)
+
+
+
+
+```
