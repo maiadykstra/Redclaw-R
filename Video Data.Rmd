@@ -16,20 +16,18 @@ video_times <- read_csv("Video Start and Stop Times.csv")
 
 Joining event data sheet with start/stop time sheet and formatting go get real event times
 ```{r}
-# this has several issues
-# one it still thinks that my minutes are hours and seconds are minutes
-# two, it's outputing the final time in seconds which isn't super helpful
-# generated table is up in viewer tab above, look for other errors and address them
 realtime_events <- video_events %>%
    left_join(video_times, by = "video_code")
 
 realtime_events <- realtime_events %>%
   mutate(
-    min = as.numeric(sub(":.*", "", timestamp)),
-    sec = as.numeric(sub(".*:", "", timestamp)),
-    video_seconds = min * 60 + sec,
-    real_timestamp  = video_seconds * 29.97,
-    event_true_time = start + real_timestamp
+     start_datetime = as.POSIXct(paste(date.x, start), format = "%d-%b-%y %H:%M:%S")) %>%
+   separate(timestamp, into = c("hh", "mm", "ss"), sep = ":", convert = TRUE) %>%
+  mutate(
+    timestamp_seconds = hh * 60 + mm, #what timestamp recognizes as hour is actually minute, minute is second
+    real_timestamp_secs  = timestamp_seconds * 29.97,,
+    real_timestamp_hms  = seconds_to_period(real_timestamp_secs),
+    event_true_datetime = start_datetime + real_timestamp_hms
   )
 
 ```
