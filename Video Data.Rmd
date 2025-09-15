@@ -14,8 +14,10 @@ video_times <- read_csv("Video Start and Stop Times.csv")
 ```
 
 
-Joining event data sheet with start/stop time sheet and formatting go get real event times
+Joining event data sheet with start/stop time sheet and manipulating to create a variable column for real event dates and times
 ```{r}
+#Test events (lights off known time 20:00) show all notable event times coming out within 1.5 seconds of each other accross cameras and within 1.5 seconds of the correct time (20:00). This should be more than sufficient for the timescales I'm working on. 
+
 realtime_events <- video_events %>%
    left_join(video_times, by = "video_code")
 
@@ -117,4 +119,79 @@ moult_count <- video_events %>%
 ggplot(moult_count, aes(x = time_of_day , y = count, )) +
   geom_boxplot()
 
+```
+
+Moult/Mort visualization bt tank 
+```{r}
+realtime_events %>%
+filter(event_type != "Test") %>%
+  filter(event_type != "Feed") %>%
+ggplot() +
+  geom_point(aes(x = event_true_datetime, y = factor(camera.x), color = event_type), size = 3) +
+  labs(x = "Time", y = "Tank", color = "Event Type") +
+  theme_minimal()
+```
+Summary table event counts
+```{r}
+events_summary <- realtime_events %>%
+  mutate(event_true_date = as.Date(event_true_datetime)) %>% # this is important because in the original date column the date is the day the video started not the actual date (ie things that happen after midnight are not technically the correct date in the original)
+  group_by(camera.x, event_true_date, event_type) %>%
+  summarise(count = n(), .groups = "drop")
+```
+
+Event count per day per tank bar graph
+```{r}
+events_summary %>%
+  filter(event_type != "Test") %>%
+  filter(event_type != "Feed") %>%
+
+ggplot(aes(x = event_true_date, y = count, fill = event_type)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~camera.x) +
+  labs(x = "Date", y = "Count per day", fill = "Event Type") +
+  theme_minimal()
+```
+
+Testing autocorrolation chattage, it seems to not fully work. That's for later.
+```{r}
+bin_size <- 10*60  # 10 minutes in seconds
+
+events_binned <- realtime_events %>%
+  group_by(camera.x, event_type) %>%
+  mutate(
+    # seconds since start of experiment per tank
+    time_sec = as.numeric(event_true_datetime - min(event_true_datetime)),
+    # assign bin
+    bin = floor(time_sec / bin_size)
+  ) %>%
+  ungroup() %>%
+  group_by(camera.x, event_type, bin) %>%
+  summarise(count = n(), .groups = "drop")
+
+all_bins <- expand.grid(
+  camera.x = unique(events_binned$camera.x),
+  event_type = unique(events_binned$event_type),
+  bin = 0:max(events_binned$bin)
+)
+
+events_binned <- events_binned %>%
+  group_by(camera.x, event_type, bin) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  right_join(all_bins, by = c("camera.x", "event_type", "bin")) %>%
+  mutate(count = ifelse(is.na(count), 0, count)) %>%
+  arrange(camera.x, event_type, bin)
+
+autocorr_results <- events_binned %>%
+  group_by(camera.x, event_type) %>%
+  summarise(
+    acf_values = list(acf(count, plot = FALSE)$acf),
+    lags = list(acf(count, plot = FALSE)$lag),
+    .groups = "drop"
+  )
+
+cam_example <- 1
+event_example <- "Feed"
+acf_data <- events_binned %>% filter(camera.x == cam_example, event_type == event_example)
+
+acf(acf_data$count, main = paste("ACF - Tank", cam_example, "-", event_example))
 ```
