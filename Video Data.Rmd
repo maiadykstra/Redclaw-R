@@ -5,12 +5,14 @@ output: html_document
 
 Prep libraries and import datasheets
 ```{r}
+
 library(tidyverse)
 
 video_events <- read_csv("video Notable Events.csv")
 video_morts <- read_csv("Mort Counts for Vid Analysis.csv")
 no_event_vids <- read_csv("No Event Videos.csv")
 video_times <- read_csv("Video Start and Stop Times.csv")
+isolated_counts <read.csv("Isolated_Counts.csv")
 ```
 
 
@@ -87,7 +89,7 @@ group_by(event_type, mort_moult_stage, time_of_day) %>%
 
 
 ```
-Having the one 'moulting' bar is really ugly and hard to interpret, maybe should go back and re-watch, classify as either pre, post or unkown. I remeber that vid and it is weird
+Having the one 'moulting' bar is really ugly and hard to interpret, maybe should go back and re-watch, classify as either pre, post or unkown. I remeber that vid and it is weird, but the animal DOES appear to be cannibalized immediatedly as it beigns to moult, not after
 
 
 ```{r}
@@ -106,19 +108,6 @@ ggplot(moult_tally, aes(x = day_number, y = count)) +
     color = "Camera Number"
   ) +
   theme_minimal()
-```
-
-Fucking about with boxplots
-```{r}
-
-moult_count <- video_events %>%
-  filter(event_type == "Moult") %>%
-  group_by(camera, time_of_day) %>%
-  summarize(count = n(), .groups = "drop")
-
-ggplot(moult_count, aes(x = time_of_day , y = count, )) +
-  geom_boxplot()
-
 ```
 
 Moult/Mort visualization bt tank 
@@ -152,75 +141,5 @@ ggplot(aes(x = event_true_date, y = count, fill = event_type)) +
   theme_minimal()
 ```
 
-Testing autocorrolation chattage, it seems to not fully work. That's for later.
-```{r}
-bin_size <- 10*60  # 10 minutes in seconds
-
-events_binned <- realtime_events %>%
-  group_by(camera.x, event_type) %>%
-  mutate(
-    # seconds since start of experiment per tank
-    time_sec = as.numeric(event_true_datetime - min(event_true_datetime)),
-    # assign bin
-    bin = floor(time_sec / bin_size)
-  ) %>%
-  ungroup() %>%
-  group_by(camera.x, event_type, bin) %>%
-  summarise(count = n(), .groups = "drop")
-
-all_bins <- expand.grid(
-  camera.x = unique(events_binned$camera.x),
-  event_type = unique(events_binned$event_type),
-  bin = 0:max(events_binned$bin)
-)
-
-events_binned <- events_binned %>%
-  group_by(camera.x, event_type, bin) %>%
-  summarise(count = n(), .groups = "drop") %>%
-  right_join(all_bins, by = c("camera.x", "event_type", "bin")) %>%
-  mutate(count = ifelse(is.na(count), 0, count)) %>%
-  arrange(camera.x, event_type, bin)
-
-autocorr_results <- events_binned %>%
-  group_by(camera.x, event_type) %>%
-  summarise(
-    acf_values = list(acf(count, plot = FALSE)$acf),
-    lags = list(acf(count, plot = FALSE)$lag),
-    .groups = "drop"
-  )
-
-cam_example <- 1
-event_example <- "Feed"
-acf_data <- events_binned %>% filter(camera.x == cam_example, event_type == event_example)
-
-acf(acf_data$count, main = paste("ACF - Tank", cam_example, "-", event_example))
-```
-
-testing circ stats chattage, also a bit fucked
-```{r}
-library(circular)
-
-events_circ <- realtime_events %>%
-  mutate(
-    hour_decimal = hour(event_true_datetime) + minute(event_true_datetime)/60,
-    angle_rad = 2 * pi * hour_decimal / 24,
-    angle_circular = circular(angle_rad, units = "radians")
-  )
-
-# Test for clustering (Rayleigh test) by tank and event_type
-rayleigh_results <- events_circ %>%
-  group_by(camera.x, event_type) %>%
-  summarise(
-    rayleigh_p = rayleigh.test(angle_circular)$p.value,
-    mean_angle = mean.circular(angle_circular),
-    .groups = "drop"
-  )
-
-# Compare mean angles between treatments (Watson–Williams test)
-# Ensure treatment column exists
-watson_results <- watson.williams.test(angle_circular ~ event_type, data = events_circ)
 
 
-
-
-```
