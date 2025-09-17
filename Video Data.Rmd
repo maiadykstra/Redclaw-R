@@ -114,9 +114,12 @@ summary(fit_coxph_cluster)
 zph <- cox.zph(fit_coxph_cluster)
 print(zph)
 plot(zph)  # visual check: lines close to horizontal indicate PH reasonable
+#Not so, it seems proportional hazard of death between individual and group may change over time, makes sense, few individual deaths toward end
 
 #Kaplan Myer
 km_fit <- survfit(surv_obj ~ treatment, data = survival_for_curve)
+
+survdiff(surv_obj ~ treatment, data = survival_for_curve)
 
 # Base R plot
 plot(km_fit, xlab = "Time (days)", ylab = "Survival probability",
