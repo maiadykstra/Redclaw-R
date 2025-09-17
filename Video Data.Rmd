@@ -12,7 +12,8 @@ video_events <- read_csv("video Notable Events.csv")
 video_morts <- read_csv("Mort Counts for Vid Analysis.csv")
 no_event_vids <- read_csv("No Event Videos.csv")
 video_times <- read_csv("Video Start and Stop Times.csv")
-isolated_counts <read.csv("Isolated_Counts.csv")
+isolated_counts <-read.csv("Isolated_Counts.csv")
+halfday_morts <-read.csv("Morts by half day.csv")
 ```
 
 
@@ -33,6 +34,67 @@ realtime_events <- realtime_events %>%
     real_timestamp_hms  = seconds_to_period(real_timestamp_secs),
     event_true_datetime = start_datetime + real_timestamp_hms
   )
+
+```
+
+Making appropriate data frame for survival curve
+```{r}
+halfday_morts_long <-halfday_morts %>%
+  pivot_longer(
+    cols = starts_with("Morts"),
+    names_to = "Tank",
+    values_to = "Morts"
+  )
+
+expanded_morts <- halfday_morts_long %>%
+  filter(Morts > 0) %>%
+  uncount(weights = Morts, .id = "death_num") %>%
+  mutate(
+    status = 1  # died
+  )
+
+start_counts <- data.frame(
+  Tank = c("Morts.I", "Morts.1", "Morts.2", "Morts.3", "Morts.4"),
+  start_n = c(44, 11, 11, 11, 11),
+  treatment = c("individual", "group", "group", "group", "group")
+)
+
+total_morts <- expanded_morts %>%
+  count(Tank, name = "Morts")
+
+survivors <- start_counts %>%
+  left_join(total_morts, by = "Tank") %>%
+  mutate(
+    Morts = replace_na(Morts, 0),
+    survivors = start_n - Morts
+  ) %>%
+  filter(survivors > 0) %>%
+  uncount(weights = survivors, .id = "survivor_num") %>%
+  mutate(
+    Day = 30,
+    status = 0
+  )
+
+survival_data <- bind_rows(
+  expanded_morts %>% select(Tank, Day, status),
+  survivors %>% select(Tank, Day, status)
+) %>%
+  left_join(start_counts %>% select(Tank, treatment), by = "Tank") %>%
+  mutate(ID = row_number())
+
+survival_for_curve <- survival_data %>%
+  group_by(Tank) %>%
+  mutate(
+    # assign a unique ID *within each tank*
+    ID = paste0(Tank, "_", row_number())
+  ) %>%
+  ungroup()
+
+```
+
+Trying a survival curve
+```{r}
+
 
 ```
 
