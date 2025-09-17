@@ -95,6 +95,33 @@ survival_for_curve <- survival_data %>%
 Trying a survival curve
 ```{r}
 
+surv_obj <- Surv(time = survival_for_curve$Day, event = survival_for_curve$status)
+
+library(coxme)
+
+# (A) Cox mixed-effects model with tank random intercept (frailty) using coxme
+# This treats each group tank as a clustering level; for individual animals their 'tank' is unique
+fit_coxme <- coxme(surv_obj ~ treatment + (1 | Tank), data = survival_for_curve)
+print(summary(fit_coxme))
+
+# (B) Alternative: Cox proportional hazards with cluster-robust SE (no random effect estimate)
+fit_coxph_cluster <- coxph(surv_obj ~ treatment + cluster(Tank), data = survival_for_curve)
+summary(fit_coxph_cluster)
+
+# 9) PH assumption check for Cox model (note: coxme has limitations here)
+# ---------------------------
+# For the coxph(cluster) model:
+zph <- cox.zph(fit_coxph_cluster)
+print(zph)
+plot(zph)  # visual check: lines close to horizontal indicate PH reasonable
+
+#Kaplan Myer
+km_fit <- survfit(surv_obj ~ treatment, data = survival_for_curve)
+
+# Base R plot
+plot(km_fit, xlab = "Time (days)", ylab = "Survival probability",
+     main = "Kaplan-Meier survival by treatment", lwd = 2, lty = c(1, 2))
+legend("bottomleft", legend = names(km_fit$strata), lty = 1:length(km_fit$strata))
 
 ```
 
