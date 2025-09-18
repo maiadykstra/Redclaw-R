@@ -3,10 +3,15 @@ title: "Video Data"
 output: html_document
 ---
 
+## Start up chunk ###
+
 Prep libraries and import datasheets
 ```{r}
 
 library(tidyverse)
+library(coxme)
+library(survival)
+library(survminer)
 
 video_events <- read_csv("video Notable Events.csv")
 video_morts <- read_csv("Mort Counts for Vid Analysis.csv")
@@ -16,6 +21,7 @@ isolated_counts <-read.csv("Isolated_Counts.csv")
 halfday_morts <-read.csv("Morts by half day.csv")
 ```
 
+## Data Wrangling ##
 
 Joining event data sheet with start/stop time sheet and manipulating to create a variable column for real event dates and times
 ```{r}
@@ -35,6 +41,14 @@ realtime_events <- realtime_events %>%
     event_true_datetime = start_datetime + real_timestamp_hms
   )
 
+```
+
+Summary table event counts for ease of graphing 
+```{r}
+events_summary <- realtime_events %>%
+  mutate(event_true_date = as.Date(event_true_datetime)) %>% # this is important because in the original date column the date is the day the video started not the actual date (ie things that happen after midnight are not technically the correct date in the original)
+  group_by(camera.x, event_true_date, event_type) %>%
+  summarise(count = n(), .groups = "drop")
 ```
 
 Making appropriate data frame for survival curve
@@ -92,44 +106,116 @@ survival_for_curve <- survival_data %>%
 
 ```
 
-Trying a survival curve
+## Basic survival modeling and visualization between group and individual treatments#
+
+Kaplan-meier curves and log-rank test for diff between curves, no ability to cluster by tank within group treatment
 ```{r}
 
+#surv curves for individual vs. group putting all grouped tanks together as a treatment
 surv_obj <- Surv(time = survival_for_curve$Day, event = survival_for_curve$status)
 
-library(coxme)
+survdiff(surv_obj ~ treatment, data = survival_for_curve) #Performs log-rank test to look for differences between survival curves. this groups all the tanks together so it's just grouped vs individual as big groups, cox needed to seperate i think
 
+#Kaplan Myer fit with each tank seperated out for visualization
+survival_for_curve$tank_or_indiv <- ifelse(is.na(survival_for_curve$Tank), "individual", survival_for_curve$Tank)
+
+km_fit <- survfit(Surv(Day, status) ~ tank_or_indiv, data = survival_for_curve)
+
+#base r plot of kaplan myer with all tanks seperated to show they have similar pattern
+
+plot(km_fit, 
+     xlab = "Time (days)", 
+     ylab = "Survival probability",
+     main = "Kaplan-Meier: Individuals vs Tanks",
+     lwd = 2, col = 1:5)
+
+# Open a new plotting window (or PDF/PNG) to generate seperate figure for legend so it is not ugly
+dev.new()  # on RStudio or base R; for saving use png()/pdf()
+
+# Empty plot
+plot.new()
+
+#generate legend for prev graph
+legend("center", legend = names(km_fit$strata),
+       col = 1:5, lwd = 2)  
+
+```
+
+
+Cox proportional hazard models that do not work because of HP assumption, visual of HP assumption indicates changing hazard proportion between groups over time. Two types of cox accounting for clustering in dif ways
+```{r}
+
+#Cox
 # (A) Cox mixed-effects model with tank random intercept (frailty) using coxme
-# This treats each group tank as a clustering level; for individual animals their 'tank' is unique
+# This treats each group tank as a clustering level ; for individual animals their 'tank' is unique. Treats tank as random effect, assumes each tank has random baseline hazard andand estimates variance componant at tank level. Gives fixed effect for treatment and random effect for tank variance. Useful if you want to model tank-to-tank heterogeneity explicitly, not just adjust SEs, output includes frailty variance, but p-values may be approximate.
 fit_coxme <- coxme(surv_obj ~ treatment + (1 | Tank), data = survival_for_curve)
 print(summary(fit_coxme))
 
-# (B) Alternative: Cox proportional hazards with cluster-robust SE (no random effect estimate)
+# (B) Alternative: Cox proportional hazards with cluster-robust SE (no random effect estimate). Treats tanks as clusters for robust SEs rather than random effects. Gives treatment effect only but adjusts standard error to account for in-tank correlation. Treatment HR is effect at pop level, SEs and P values should be robust to in-tank correlation. No random effect estimate, so you don’t get tank-specific baseline hazards, but I think that's ok because HP varies by time anyway. I went with this model.
 fit_coxph_cluster <- coxph(surv_obj ~ treatment + cluster(Tank), data = survival_for_curve)
 summary(fit_coxph_cluster)
 
-# 9) PH assumption check for Cox model (note: coxme has limitations here)
+# PH assumption check for Cox model (note: coxme has limitations here, HP must be consistant over time, shown by horiz lines on plot check)
 # ---------------------------
+#for the cox me model:
+zph <- cox.zph(fit_coxme)
+print(zph)
+plot(zph) 
+
 # For the coxph(cluster) model:
 zph <- cox.zph(fit_coxph_cluster)
 print(zph)
-plot(zph)  # visual check: lines close to horizontal indicate PH reasonable
-#Not so, it seems proportional hazard of death between individual and group may change over time, makes sense, few individual deaths toward end
+plot(zph)  
 
-#Kaplan Myer
-km_fit <- survfit(surv_obj ~ treatment, data = survival_for_curve)
+# visual check: lines close to horizontal indicate PH reasonable
+#Not so, it seems proportional hazard of death between individual and group may change over time, makes sense, few individual deaths toward end. P values indicat the same in both cases
 
-survdiff(surv_obj ~ treatment, data = survival_for_curve)
+```
 
-# Base R plot
-plot(km_fit, xlab = "Time (days)", ylab = "Survival probability",
-     main = "Kaplan-Meier survival by treatment", lwd = 2, lty = c(1, 2))
-legend("bottomleft", legend = names(km_fit$strata), lty = 1:length(km_fit$strata))
+Taking previous chunk cox model with cluser (option b) and adding time-varying coefficient to allow interaction with log(time). I don't know if this is the correct way to include time, but the output is nice.
+```{r}
+
+# Round 2, trying cox with time varying treatment effect as base data does not meet PH assumption
+# Cox model with time-varying coefficient for treatment
+survival_for_curve$treat_num <- ifelse(survival_for_curve$treatment == "group", 1, 0)
+
+cox_tv <- coxph(Surv(Day, status) ~ treat_num + tt(treat_num) + cluster(Tank),
+                data = survival_for_curve,
+                tt = function(x, t, ...) x * log(t))  
+# tt term allows for interaction with log(time) to address the fact that the PH is not the same over time
+# cluster (Tank) tells the model that observations within the same tank are correlated, not independent and adjusts the standard errors and test statistics accordingly (robust sandwich variance), which allows you to still estimate a treatment-level effect while accounting for tank clustering.
+
+summary(cox_tv)
+# both treatment number (1,0 individual vs. grouped) and tt()
+
+# p value for both treat_num (individual vs grouped) and tt(treat_num) are significant, which, with some consultation with chat gpt, means that there is a significant difference between treatments and that the hazard ratio between them varies significantly over time
+
+#Attempting to visualize
+
+# Extract coefficients
+b <- coef(cox_tv)
+b_treat <- b["treat_num"]
+b_tt <- b["tt(treat_num)"]
+
+# Time grid
+time_grid <- seq(1, max(survival_for_curve$Day), length.out = 100)
+
+# Hazard ratio over time
+HR_t <- exp(b_treat + b_tt * log(time_grid))
+
+plot(time_grid, HR_t, type = "l", lwd = 2,
+     xlab = "Time (days)", ylab = "Hazard Ratio (group vs individual)",
+     main = "Time-varying Hazard Ratio")
+abline(h = 1, lty = 2, col = "grey")
+
+#Nice, so allegedly this show that there is nearly a 20x increased
 
 ```
 
 
 ### Bar Graphs ###
+
+Bar chart for notable events in dif cams
 ```{r}
 #create bar chart showing notable events sans test times and feeds accross all cams
 video_events %>%
@@ -146,6 +232,7 @@ video_events %>%
 
 ```
 
+Bar chart showing notable events by time of day
 ```{r}
 
 #create bar chart showing notable events sans test by time of day
@@ -164,6 +251,7 @@ group_by(event_type, time_of_day) %>%
 
 ```
 
+Bar chart showing cannibalism by moult stage
 ```{r}
 
 #create bar chart total cannibalism morts by moult stage
@@ -179,11 +267,11 @@ group_by(event_type, mort_moult_stage, time_of_day) %>%
        y = "Count") +
   theme_minimal()
 
+#Having the one 'moulting' bar is really ugly and hard to interpret, maybe should go back and re-watch, classify as either pre, post or unkown. I remeber that vid and it is weird, but the animal DOES appear to be cannibalized immediatedly as it beigns to moult, not after
 
 ```
-Having the one 'moulting' bar is really ugly and hard to interpret, maybe should go back and re-watch, classify as either pre, post or unkown. I remeber that vid and it is weird, but the animal DOES appear to be cannibalized immediatedly as it beigns to moult, not after
 
-
+Bar chart showing moults over time
 ```{r}
 # Moults over the full experiment
 moult_tally <- video_events %>%
@@ -202,25 +290,7 @@ ggplot(moult_tally, aes(x = day_number, y = count)) +
   theme_minimal()
 ```
 
-Moult/Mort visualization bt tank 
-```{r}
-realtime_events %>%
-filter(event_type != "Test") %>%
-  filter(event_type != "Feed") %>%
-ggplot() +
-  geom_point(aes(x = event_true_datetime, y = factor(camera.x), color = event_type), size = 3) +
-  labs(x = "Time", y = "Tank", color = "Event Type") +
-  theme_minimal()
-```
-Summary table event counts
-```{r}
-events_summary <- realtime_events %>%
-  mutate(event_true_date = as.Date(event_true_datetime)) %>% # this is important because in the original date column the date is the day the video started not the actual date (ie things that happen after midnight are not technically the correct date in the original)
-  group_by(camera.x, event_true_date, event_type) %>%
-  summarise(count = n(), .groups = "drop")
-```
-
-Event count per day per tank bar graph
+Event count per day per tank bar graph using summary table
 ```{r}
 events_summary %>%
   filter(event_type != "Test") %>%
@@ -232,6 +302,22 @@ ggplot(aes(x = event_true_date, y = count, fill = event_type)) +
   labs(x = "Date", y = "Count per day", fill = "Event Type") +
   theme_minimal()
 ```
+
+
+## Other initial visualizations ##
+
+Moult/Mort visualization by tank point graph thingy, pretty cool
+```{r}
+realtime_events %>%
+filter(event_type != "Test") %>%
+  filter(event_type != "Feed") %>%
+ggplot() +
+  geom_point(aes(x = event_true_datetime, y = factor(camera.x), color = event_type), size = 3) +
+  labs(x = "Time", y = "Tank", color = "Event Type") +
+  theme_minimal()
+```
+
+
 
 
 
