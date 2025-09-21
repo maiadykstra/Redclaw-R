@@ -1,0 +1,131 @@
+---
+title: "Data Cleaning and Plot Creation with Preliminary Thesis Data"
+output: html_document
+author: Maia Dykstra
+---
+
+In this section, I will be using preliminary data from my thesis project to provide a simple example of data cleaning and visualization. The following section loads the necessary libraries and data. Tidyverse allows for tidy data manipulation and visualization, and survival is necessary for one of the plot types generated below. The datasheets include data about notable events (moults and mortalities) in tanks of crayfish over a period of 30 days. There are 44 crayfish are kept in two different treatments: isolated from each other and kept collectively with other crayfish.
+
+```{r}
+
+library(tidyverse)
+library(survival)
+
+video_events <- read_csv("video Notable Events.csv")
+halfday_morts <-read.csv("Morts by half day.csv")
+
+```
+
+The data is already in a relativley tidy as it was intentionally entered that way, however, this section seperates out data sheets so that each observation is a single animal rather than a single observation. 
+```{r}
+halfday_morts_long <-halfday_morts %>%
+  pivot_longer(
+    cols = starts_with("Morts"),
+    names_to = "Tank",
+    values_to = "Morts"
+  )
+
+expanded_morts <- halfday_morts_long %>%
+  filter(Morts > 0) %>%
+  uncount(weights = Morts, .id = "death_num") %>%
+  mutate(
+    status = 1  # died
+  )
+
+start_counts <- data.frame(
+  Tank = c("Morts.I", "Morts.1", "Morts.2", "Morts.3", "Morts.4"),
+  start_n = c(44, 11, 11, 11, 11),
+  treatment = c("individual", "group", "group", "group", "group")
+)
+
+total_morts <- expanded_morts %>%
+  count(Tank, name = "Morts")
+
+survivors <- start_counts %>%
+  left_join(total_morts, by = "Tank") %>%
+  mutate(
+    Morts = replace_na(Morts, 0),
+    survivors = start_n - Morts
+  ) %>%
+  filter(survivors > 0) %>%
+  uncount(weights = survivors, .id = "survivor_num") %>%
+  mutate(
+    Day = 30,
+    status = 0
+  )
+
+survival_data <- bind_rows(
+  expanded_morts %>% select(Tank, Day, status),
+  survivors %>% select(Tank, Day, status)
+) %>%
+  left_join(start_counts %>% select(Tank, treatment), by = "Tank") %>%
+  mutate(ID = row_number())
+
+survival_for_curve <- survival_data %>%
+  group_by(Tank) %>%
+  mutate(
+    # assign a unique ID *within each tank*
+    ID = paste0(Tank, "_", row_number())
+  ) %>%
+  ungroup()
+
+```
+
+
+The following code generates survival curves for the individual crayfish and the collective crayfish. It then uses a log rank test to determine if there is a significant difference between the curves. The log-rank test does not allow us to cluster data (mortalities within each grouped tank are not independent) but it is a good starting point to understand the differences. The output tells us that there is a significant difference between survival curves for each treatment. 
+```{r}
+
+#surv curves for individual vs. group putting all grouped tanks together as a treatment
+surv_obj <- Surv(time = survival_for_curve$Day, event = survival_for_curve$status)
+
+survdiff(surv_obj ~ treatment, data = survival_for_curve) #Performs log-rank test to look for differences between survival curves. 
+
+```
+
+This code graphs the curves in a Kaplan-Meier survival plot. This is done in base r becuase it gets a bit more complex with ggplot. The Kaplan-Meier plot visually confirms what we learned from the log-rank test. It shows similar patterns in each grouped tank, but a clearly different pattern for individuals. See below for the legend.
+```{r}
+#Kaplan Myer fit with each tank seperated out for visualization
+survival_for_curve$tank_or_indiv <- ifelse(is.na(survival_for_curve$Tank), "individual", survival_for_curve$Tank)
+
+km_fit <- survfit(Surv(Day, status) ~ tank_or_indiv, data = survival_for_curve)
+
+#base r plot of kaplan myer with all tanks seperated to show they have similar pattern
+plot(km_fit, 
+     xlab = "Days", 
+     ylab = "Survival Probability",
+     main = "Kaplan-Meier: Individuals vs Tanks",
+     lwd = 2, col = 1:5)
+```
+
+
+Here we will generate a legend separately so it is easier to see and can be places in different orientations to the graph in a document later on. 
+```{r}
+
+# Empty plot
+plot.new()
+
+#generate legend for prev graph
+legend("center", legend = c("Tank 1", "Tank 2", "Tank 3", "Tank 4", "Individuals"),
+       col = 1:5, lwd = 2)  
+
+```
+
+This is a final extra plot to show the use of ggplot. This graph shows the number of morts and mortalities that occured during the light and dark (day and night) periods over the full experiment in the group tanks. It has been previously noted anecdotaly that both moults and mortalities in the species occur more at night, but the data in this graph seems to challenge that perception. Additionally, it is commonly beleived that the primary cause of mortality for this life 
+```{r}
+
+#create bar chart showing notable events sans test by time of day
+video_events %>%
+group_by(event_type, time_of_day) %>%
+  filter(event_type != "Test") %>%
+  filter(event_type != "Feed") %>%
+  summarize(count = n()) %>%
+  ggplot(aes(x = event_type, y = count, fill = time_of_day)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Notable Events by Camera",
+       x = "Event",
+       y = "Count",
+       fill = "Time of Day") +
+  theme_minimal()
+
+
+```

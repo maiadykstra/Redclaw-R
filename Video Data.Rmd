@@ -19,6 +19,7 @@ no_event_vids <- read_csv("No Event Videos.csv")
 video_times <- read_csv("Video Start and Stop Times.csv")
 isolated_counts <-read.csv("Isolated_Counts.csv")
 halfday_morts <-read.csv("Morts by half day.csv")
+treatments_morts_dets <-read.csv("survival_for_curve_plusCauseAndMoult.csv")
 ```
 
 ## Data Wrangling ##
@@ -106,7 +107,7 @@ survival_for_curve <- survival_data %>%
 
 ```
 
-## Basic survival modeling and visualization between group and individual treatments#
+## Basic survival modeling and visualization between group and individual treatments ##
 
 Kaplan-meier curves and log-rank test for diff between curves, no ability to cluster by tank within group treatment
 ```{r}
@@ -210,6 +211,18 @@ abline(h = 1, lty = 2, col = "grey")
 
 #Nice, so allegedly this show that there is nearly a 20x increased
 
+```
+
+### new
+```{r}
+# Turning words into numbers for easier modeling
+# Causes of mortality
+cause_map <- c("Cannibalism" = 1, "Moult Failure" = 2, "Moult Failure + Cannibalism" = 3, "Cannibalism + Moult Failure" = 4, "Unknown" = 5)
+treatments_morts_dets$Cause <- cause_map[treatments_morts_dets$Cause]
+
+# Moult stage
+moult_map <- c("Pre-moult" = 1, "Moulting" = 2, "Post-moult" = 3, "Unknown" = 4)
+treatments_morts_dets$Stage <- moult_map[treatments_morts_dets$Stage]
 ```
 
 
