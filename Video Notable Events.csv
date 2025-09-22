@@ -63,7 +63,7 @@
 72611,26-Jul-25,4,1,am,0:30,Feed,NA,NA,NA,
 72611,26-Jul-25,4,1,am,13:00,Moult,NA,NA,yes,
 72611,26-Jul-25,4,1,pm,24:04:00,Feed,NA,NA,NA,
-72612,26-Jul-25,4,1,pm,4:12,Mortality,Cannibalism,Unknown,NA,"Animal canibalized, no evidence of it trying to moult previously and no moults visible since midway thru the AM vid for this day"
+72612,26-Jul-25,4,1,pm,4:12,Mortality,Cannibalism,Inter-moult,NA,"Animal canibalized, no evidence of it trying to moult previously and no moults visible since midway thru the AM vid for this day"
 72612,26-Jul-25,4,1,pm,14:25,Moult,NA,NA,yes,
 72621,26-Jul-25,4,2,am,0:27,Feed,NA,NA,NA,
 72621,26-Jul-25,4,2,pm,24:03:00,Feed,NA,NA,NA,
@@ -147,12 +147,12 @@
 73121,31-Jul-25,9,2,am,2:31,Moult,NA,NA,yes,
 73121,31-Jul-25,9,2,am,3:02,Moult,NA,NA,yes,
 73121,31-Jul-25,9,2,pm,23:55,Feed,NA,NA,NA,
-73122,31-Jul-25,9,2,pm,12:52,Mortality,Cannibalism,Unknown,NA,Animal is notably smaller than others and was noted to appear 'damaged' at the pm check prior to this video. Animal could be stuck/failing to moult or might just be small and bullied
+73122,31-Jul-25,9,2,pm,12:52,Mortality,Cannibalism,Inter-moult,NA,Animal is notably smaller than others and was noted to appear 'damaged' at the pm check prior to this video. Animal could be stuck/failing to moult or might just be small and bullied
 73131,31-Jul-25,9,3,am,0:11,Feed,NA,NA,NA,
 73131,31-Jul-25,9,3,am,4:29,Moult,NA,NA,yes,
 73131,31-Jul-25,9,3,am,8:29,Moult,NA,NA,yes,
 73131,31-Jul-25,9,3,pm,23:56,Feed,NA,NA,NA,
-73132,31-Jul-25,9,3,pm,13:59,Mortality,Cannibalism,Unknown,NA,Animal was rolling from timestamp 8:29 onward and attacked by multiple animals before dying. Stuck or broken? 
+73132,31-Jul-25,9,3,pm,13:59,Mortality,Cannibalism,Inter-moult,NA,Animal was rolling from timestamp 8:29 onward and attacked by multiple animals before dying. Stuck or broken? 
 73141,31-Jul-25,9,4,am,0:11,Feed,NA,NA,NA,
 73141,31-Jul-25,9,4,pm,23:56,Feed,NA,NA,NA,
 80111,1-Aug-25,10,1,am,0:11,Feed,NA,NA,NA,
@@ -221,11 +221,11 @@
 80611,6-Aug-25,15,1,am,11:48,Moult,NA,NA,yes,
 80611,6-Aug-25,15,1,am,11:57,Mortality,Cannibalism,Post-moult,NA,
 80611,6-Aug-25,15,1,pm,23:58,Feed,NA,NA,NA,
-80612,6-Aug-25,15,1,pm,22:21,Mortality,Cannibalism,Unknown,NA,animal was noted as 'struggling' and rolling as of 2:50 in the previous video. Another case of possible aggression damage or possible moult stuck. Liths/emptying not visible
+80612,6-Aug-25,15,1,pm,22:21,Mortality,Cannibalism,Inter-moult,NA,animal was noted as 'struggling' and rolling as of 2:50 in the previous video. Another case of possible aggression damage or possible moult stuck. Liths/emptying not visible
 80621,6-Aug-25,15,2,am,0:18,Feed,NA,NA,NA,
 80621,6-Aug-25,15,2,am,9:10,Moult,NA,NA,yes,
 80621,6-Aug-25,15,2,pm,23:58,Feed,NA,NA,NA,
-80622,6-Aug-25,15,2,pm,2:28,Mortality,Cannibalism,Unknown,NA,"Animal was noted as struggling, rolling, posisbly trying to moult from 15:03 in prev video. Broken or moulting? "
+80622,6-Aug-25,15,2,pm,2:28,Mortality,Cannibalism,Inter-moult,NA,"Animal was noted as struggling, rolling, posisbly trying to moult from 15:03 in prev video. Broken or moulting? "
 80631,6-Aug-25,15,3,am,0:17,Feed,NA,NA,NA,
 80631,6-Aug-25,15,3,am,6:48,Moult,NA,NA,yes,
 80631,6-Aug-25,15,3,am,17:15,Moult,NA,NA,yes,
@@ -301,10 +301,10 @@
 81241,12-Aug-25,21,4,am,5:41,Moult,NA,NA,no,"animal was attacked extensively when liths were visible pre-moult, moult likely failed due to attack damage not other causes"
 81241,12-Aug-25,21,4,am,5:41,Mortality,Cannibalism + Moult Failure,Moulting,NA,"Rather than a failed moult ending in cannibalism, this is cannibalism ending in a failed moult. Animal was attacked pre-moult as liths were becoming visible and full v empty, when it tried to moult after this it got stuck and died. The ultimate cause of death was getting stuck, that's where it actually died and it was secondarily cannibalized after that but it was doing fine prior to attack and had not yet tried or struggled to moult. Is the cause of death the cannibalism or the stuck? or both?? a 4th category?"
 81241,12-Aug-25,21,4,pm,24:00:00,Feed,NA,NA,NA,
-81242,12-Aug-25,21,4,pm,12:36,Mortality,Cannibalism,Unknown,NA,"animal was rolling/stuggling starting in previous video, cannibalized animal was small, notably smaller than cannibalizer. Could have been damaged by previous negative interactions and several aggressive interactions early in video or could have been trying and failing to moult. Classify?"
+81242,12-Aug-25,21,4,pm,12:36,Mortality,Cannibalism,Inter-moult,NA,"animal was rolling/stuggling starting in previous video, cannibalized animal was small, notably smaller than cannibalizer. Could have been damaged by previous negative interactions and several aggressive interactions early in video or could have been trying and failing to moult. Classify?"
 81311,13-Aug-25,22,1,am,0:23,Feed,NA,NA,NA,
 81311,13-Aug-25,22,1,pm,24:00:00,Feed,NA,NA,NA,
-81312,13-Aug-25,22,1,pm,20:14,Mortality,Cannibalism,Unknown,NA,"animal was attacked early in video but second attack is what killed it. Very likely to be 'damaged' animal noted in real time tally for several days before this because it is not noted after today. Animal had been rolling/struggling, holding on to food, perching a lot ie behaving strangely for several days. Unclear again if rolling/struggling is related to moult failure or bullying. Animal was quite small"
+81312,13-Aug-25,22,1,pm,20:14,Mortality,Cannibalism,Inter-moult,NA,"animal was attacked early in video but second attack is what killed it. Very likely to be 'damaged' animal noted in real time tally for several days before this because it is not noted after today. Animal had been rolling/struggling, holding on to food, perching a lot ie behaving strangely for several days. Unclear again if rolling/struggling is related to moult failure or bullying. Animal was quite small"
 81321,13-Aug-25,22,2,am,0:22,Feed,NA,NA,NA,
 81321,13-Aug-25,22,2,pm,24:00:00,Feed,NA,NA,NA,
 81331,13-Aug-25,22,3,am,0:21,Feed,NA,NA,NA,
@@ -351,13 +351,13 @@
 81811,18-Aug-25,27,1,am,19:48,Moult,NA,NA,yes,
 81811,18-Aug-25,27,1,pm,24:00:00,Feed,NA,NA,NA,
 81821,18-Aug-25,27,2,am,0:19,Feed,NA,NA,NA,
-81821,18-Aug-25,27,2,am,23:25,Mortality,Cannibalism,Unknown,NA,"Animal had been rolling / struggling since the 16th and was being bullied by other animals. Noted that it doesn't look like it's trying to moult. Stuck, damaged, both? Category? Was attacked prior to lethal attack"
+81821,18-Aug-25,27,2,am,23:25,Mortality,Cannibalism,Inter-moult,NA,"Animal had been rolling / struggling since the 16th and was being bullied by other animals. Noted that it doesn't look like it's trying to moult. Stuck, damaged, both? Category? Was attacked prior to lethal attack"
 81821,18-Aug-25,27,2,pm,24:00:00,Feed,NA,NA,NA,
 81831,18-Aug-25,27,3,am,0:17,Feed,NA,NA,NA,
 81831,18-Aug-25,27,3,am,8:23,Moult ,NA,NA,yes,
 81831,18-Aug-25,27,3,pm,23:57,Feed,NA,NA,NA,
 81841,18-Aug-25,27,4,am,0:18,Feed,NA,NA,NA,
-81841,18-Aug-25,27,4,am,5:14,Mortality,Cannibalism,Unknown,NA,"Animal had been rolling / struggling since previous AM vid, was ocasionally fully stuck on side and actively being bullied. Damage vs moult stuck or both again unclear"
+81841,18-Aug-25,27,4,am,5:14,Mortality,Cannibalism,Inter-moult,NA,"Animal had been rolling / struggling since previous AM vid, was ocasionally fully stuck on side and actively being bullied. Damage vs moult stuck or both again unclear"
 81841,18-Aug-25,27,4,pm,23:57,Feed,NA,NA,NA,
 81911,19-Aug-25,28,1,am,0:13,Feed,NA,NA,NA,
 81911,19-Aug-25,28,1,am,8:51,Moult,NA,NA,yes,
@@ -373,13 +373,13 @@
 81941,19-Aug-25,28,4,pm,23:59,Feed,NA,NA,NA,
 82011,20-Aug-25,29,1,am,0:13,Feed,NA,NA,NA,
 82011,20-Aug-25,29,1,pm,23:54,Feed,NA,NA,NA,
-82012,20-Aug-25,29,1,pm,15:40,Mortality,Cannibalism,Unknown,NA,"Animal rolling a bit prior to death, took 2 attacks by large animal to kill it, again unclear roll played by potential moult failure vs just bullying and cannibalism"
+82012,20-Aug-25,29,1,pm,15:40,Mortality,Cannibalism,Inter-moult,NA,"Animal rolling a bit prior to death, took 2 attacks by large animal to kill it, again unclear roll played by potential moult failure vs just bullying and cannibalism"
 82021,20-Aug-25,29,2,am,0:12,Feed,NA,NA,NA,
 82021,20-Aug-25,29,2,pm,23:55,Feed,NA,NA,NA,
-82022,20-Aug-25,29,2,pm,4:40,Mortality,Cannibalism,Unknown,NA,"Animal was NOT rolling or exhibiting symptoms of damage or moult prior. Several attacks/bouts of bullying of slightly smaller animal by slightly larger animal ending in cannibalism of the smaller, only partially consumed"
+82022,20-Aug-25,29,2,pm,4:40,Mortality,Cannibalism,Inter-moult,NA,"Animal was NOT rolling or exhibiting symptoms of damage or moult prior. Several attacks/bouts of bullying of slightly smaller animal by slightly larger animal ending in cannibalism of the smaller, only partially consumed"
 82031,20-Aug-25,29,3,am,0:12,Feed,NA,NA,NA,
 82031,20-Aug-25,29,3,pm,23:56,Feed,NA,NA,NA,
-82032,20-Aug-25,29,3,pm,8:32,Mortality,Cannibalism,Unknown,NA,"Animal was NOT exhibiting rolling prior to major attack at 6:21, animal is repeatedly bullied after until death"
+82032,20-Aug-25,29,3,pm,8:32,Mortality,Cannibalism,Inter-moult,NA,"Animal was NOT exhibiting rolling prior to major attack at 6:21, animal is repeatedly bullied after until death"
 82041,20-Aug-25,29,4,am,0:12,Feed,NA,NA,NA,
 82041,20-Aug-25,29,4,pm,23:57,Feed,NA,NA,NA,
 82111,21-Aug-25,30,1,am,0:18,Feed,NA,NA,NA,

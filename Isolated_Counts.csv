@@ -1,14 +1,14 @@
 ﻿Date,Time,Survivors,Mort_Count,Mort_Cause,Moult_Stage,
 23/07/2025,AM,44,1,Moult Failure,Moulting,
-23/07/2025,PM,43,1,Unknown,Pre-moult,"Shell popped, immediately pre-moult, should classify as failure?"
-24/07/2025,AM,42,1,Unknown,Unknown,
+23/07/2025,PM,43,1,Moult Failure,Moulting,classified as pre-moult and failure because carapace was popped
+24/07/2025,AM,42,1,Unknown,Inter-moult,
 24/07/2025,PM,41,0,,,
 25/07/2025,AM,41,0,,,
 25/07/2025,PM,41,0,,,
-26/07/2025,AM,41,1,Unknown,Unknown,
+26/07/2025,AM,41,1,Unknown,Inter-moult,
 26/07/2025,PM,40,0,,,
 27/07/2025,AM,40,0,,,
-27/07/2025,PM,40,1,Unknown,Pre-moult,"Animal not doing well for 24-36 hours prior to death. Carapace was popped indicateing imanent moult, should classify as failure?"
+27/07/2025,PM,40,1,Moult Failure,Moulting,"Animal not doing well for 24-36 hours prior to death. Carapace was popped indicateing imanent moult, thus classified as failure"
 28/07/2025,AM,39,0,,,
 28/07/2025,PM,39,1,Moult Failure,Moulting,
 29/07/2025,AM,38,1,Moult Failure,Moulting,
@@ -27,7 +27,7 @@
 4/8/2025,PM,37,0,,,
 5/8/2025,AM,37,0,,,
 5/8/2025,PM,37,0,,,
-6/8/2025,AM,37,1,Unknown,Pre-moult,"Large visible gastroliths but not rotated, pre-moult but not immanently"
+6/8/2025,AM,37,1,Unknown,Pre-moult,"Large visible gastroliths but not rotated, pre-moult but not immanently, carapace not popped so not classified as failure"
 6/8/2025,PM,36,0,,,
 7/8/2025,AM,36,0,,,
 7/8/2025,PM,36,0,,,
@@ -43,7 +43,7 @@
 12/8/2025,PM,36,0,,,
 13/08/2025,AM,36,0,,,
 13/08/2025,PM,36,0,,,
-14/08/2025,AM,36,1,Unknown ,Unknown,"Animal was stunted, much smaller than others, had weird brown exploded cape thing as observed in some moult staging experiments morts"
+14/08/2025,AM,36,1,Unknown ,Inter-moult,"Animal was stunted, much smaller than others, had weird brown exploded cape thing as observed in some moult staging experiments morts"
 14/08/2025,PM,35,0,,,
 15/08/2025,AM,35,0,,,
 15/08/2025,PM,35,0,,,
