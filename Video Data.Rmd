@@ -135,10 +135,30 @@ dev.new()  # on RStudio or base R; for saving use png()/pdf()
 
 # Empty plot
 plot.new()
+```
 
+ggplot km curve, super ugly
+```{r}
 #generate legend for prev graph
 legend("center", legend = names(km_fit$strata),
        col = 1:5, lwd = 2)  
+
+# Tidy survival object into a data frame
+km_fit_clean <- broom::tidy(km_fit)
+
+# Plot
+ggplot(km_fit_clean, aes(x = time, y = estimate, color = strata)) +
+  geom_step(size = 1.2) +
+  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = strata), 
+              alpha = 0.2, linetype = 0) +
+  labs(
+    title = "Kaplan–Meier Survival Curves",
+    x = "Time (days)",
+    y = "Survival probability",
+    color = "Treatment",
+    fill = "Treatment"
+  ) +
+  theme_minimal()
 
 ```
 
@@ -211,6 +231,52 @@ abline(h = 1, lty = 2, col = "grey")
 
 #Nice, so allegedly this show that there is nearly a 20x increased
 
+```
+#Chattage better version of hazard raio from above with ggplot
+```{r}
+library(ggplot2)
+
+# Variance-covariance matrix
+vc <- vcov(cox_tv)
+
+# Extract coefficients
+b_treat <- coef(cox_tv)["treat_num"]
+b_tt    <- coef(cox_tv)["tt(treat_num)"]
+
+# Time grid
+time_grid <- seq(1, max(survival_for_curve$Day), length.out = 100)
+
+# Linear predictor and variance
+lp <- b_treat + b_tt * log(time_grid)
+var_lp <- vc["treat_num","treat_num"] +
+          (log(time_grid)^2) * vc["tt(treat_num)","tt(treat_num)"] +
+          2 * log(time_grid) * vc["treat_num","tt(treat_num)"]
+
+# SE and 95% CI
+se_lp <- sqrt(var_lp)
+HR_t  <- exp(lp)
+lower <- exp(lp - 1.96 * se_lp)
+upper <- exp(lp + 1.96 * se_lp)
+
+# Put into data frame
+df_hr <- data.frame(
+  time  = time_grid,
+  HR    = HR_t,
+  lower = lower,
+  upper = upper
+)
+
+# Plot with ribbon
+ggplot(df_hr, aes(x = time, y = HR)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "lightblue", alpha = 0.4) +
+  geom_line(color = "blue", size = 1.2) +
+  geom_hline(yintercept = 1, linetype = "dashed", color = "grey40") +
+  labs(
+    x = "Time (days)",
+    y = "Hazard Ratio (group vs individual)",
+    title = "Time-varying Hazard Ratio with 95% CI"
+  ) +
+  theme_minimal(base_size = 14)
 ```
 
 ### new
