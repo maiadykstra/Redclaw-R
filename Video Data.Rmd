@@ -125,9 +125,8 @@ km_fit <- survfit(Surv(Day, status) ~ tank_or_indiv, data = survival_for_curve)
 #base r plot of kaplan myer with all tanks seperated to show they have similar pattern
 
 plot(km_fit, 
-     xlab = "Time (days)", 
-     ylab = "Survival probability",
-     main = "Kaplan-Meier: Individuals vs Tanks",
+     xlab = "Time (Days)", 
+     ylab = "Survival Probability",
      lwd = 2, col = 1:5)
 
 # Open a new plotting window (or PDF/PNG) to generate seperate figure for legend so it is not ugly
@@ -135,31 +134,10 @@ dev.new()  # on RStudio or base R; for saving use png()/pdf()
 
 # Empty plot
 plot.new()
-```
 
-ggplot km curve, super ugly
-```{r}
 #generate legend for prev graph
-legend("center", legend = names(km_fit$strata),
+legend("center", legend = c("Tank 1", "Tank 2", "Tank 3", "Tank 4", "Individuals"),
        col = 1:5, lwd = 2)  
-
-# Tidy survival object into a data frame
-km_fit_clean <- broom::tidy(km_fit)
-
-# Plot
-ggplot(km_fit_clean, aes(x = time, y = estimate, color = strata)) +
-  geom_step(size = 1.2) +
-  geom_ribbon(aes(ymin = conf.low, ymax = conf.high, fill = strata), 
-              alpha = 0.2, linetype = 0) +
-  labs(
-    title = "Kaplan–Meier Survival Curves",
-    x = "Time (days)",
-    y = "Survival probability",
-    color = "Treatment",
-    fill = "Treatment"
-  ) +
-  theme_minimal()
-
 ```
 
 
@@ -193,7 +171,7 @@ plot(zph)
 
 ```
 
-Taking previous chunk cox model with cluser (option b) and adding time-varying coefficient to allow interaction with log(time). I don't know if this is the correct way to include time, but the output is nice.
+Taking previous chunk cox model with cluster (option b) and adding time-varying coefficient to allow interaction with log(time). 
 ```{r}
 
 # Round 2, trying cox with time varying treatment effect as base data does not meet PH assumption
@@ -226,12 +204,28 @@ HR_t <- exp(b_treat + b_tt * log(time_grid))
 
 plot(time_grid, HR_t, type = "l", lwd = 2,
      xlab = "Time (days)", ylab = "Hazard Ratio (group vs individual)",
-     main = "Time-varying Hazard Ratio")
+     # main = "Time-varying Hazard Ratio"
+     )
 abline(h = 1, lty = 2, col = "grey")
 
 #Nice, so allegedly this show that there is nearly a 20x increased
 
 ```
+
+Testing if linear or log-transformed t covariate cox is a better model 
+```{r}
+# Results are essentially the same, log is like 0.5 higher which allegedly means the models both fit about equally well. Go with log? 
+
+cox_linear <- coxph(Surv(Day, status) ~ treat_num + tt(treat_num) + cluster(Tank), 
+                    data = survival_for_curve, 
+                    tt = function(x,t,...) x*t)
+
+cox_log <- cox_tv  # current model with log(t)
+
+AIC(cox_linear, cox_log)
+```
+
+
 #Chattage better version of hazard raio from above with ggplot
 ```{r}
 library(ggplot2)
