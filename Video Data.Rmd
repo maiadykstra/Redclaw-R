@@ -11,6 +11,7 @@ Prep libraries and import datasheets
 library(tidyverse)
 library(coxme)
 library(survival)
+library(stringr)
 
 video_events <- read_csv("video Notable Events.csv")
 video_morts <- read_csv("Mort Counts for Vid Analysis.csv")
@@ -19,6 +20,10 @@ video_times <- read_csv("Video Start and Stop Times.csv")
 isolated_counts <-read.csv("Isolated_Counts.csv")
 halfday_morts <-read.csv("Morts by half day.csv")
 treatments_morts_dets <-read.csv("survival_for_curve_plusCauseAndMoult.csv")
+
+#Getting rid of extra spaces that result in fake categories
+treatments_morts_dets <- treatments_morts_dets %>%
+  mutate(Cause = str_trim(Cause))
 ```
 
 ## Data Wrangling ##
@@ -40,6 +45,13 @@ realtime_events <- realtime_events %>%
     real_timestamp_hms  = seconds_to_period(real_timestamp_secs),
     event_true_datetime = start_datetime + real_timestamp_hms
   )
+
+```
+
+Adding AM/PM to mortality details summary data frame
+```{r}
+treatments_morts_dets <- treatments_morts_dets %>%
+  mutate(time = ifelse(Day %% 1 == 0, "Night", "Day"))
 
 ```
 
@@ -171,6 +183,8 @@ plot(zph)
 # visual check: lines close to horizontal indicate PH reasonable
 #Not so, it seems proportional hazard of death between individual and group may change over time, makes sense, few individual deaths toward end. P values of zph indicate the same in both cases
 
+AIC(fit_coxme, fit_coxph_cluster)
+
 ```
 
 Taking previous chunk cox model with cluster (option b) and adding time-varying coefficient to allow interaction with log(time). 
@@ -274,6 +288,22 @@ ggplot(df_hr, aes(x = time, y = HR)) +
   ) +
   theme_minimal(base_size = 14)
 ```
+
+## Chi square/Fisher exact for comparisons without continuous time componant ##
+
+
+```{r}
+
+ctable_cause <- xtabs(~ treatment + Cause, data = treatments_morts_dets)
+
+ctable_stage <- xtabs(~ treatment + Stage, data = treatments_morts_dets)
+
+ctable_time <- xtabs(~ treatment + time, data = treatments_morts_dets)
+
+
+
+```
+
 
 ### Data wrangling WORK IN PROGRESS for possible competing hazard model for cause of death, not current priority. Turns categoricals into number codes in the dataset formatted for survival curves
 ```{r}
@@ -391,9 +421,5 @@ ggplot() +
   labs(x = "Time", y = "Tank", color = "Event Type") +
   theme_minimal()
 ```
-
-
-
-
 
 
