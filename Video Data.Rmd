@@ -48,10 +48,15 @@ realtime_events <- realtime_events %>%
 
 ```
 
-Adding AM/PM to mortality details summary data frame
+Adding AM/PM and rough time chunks to mortality details summary data frame
 ```{r}
 treatments_morts_dets <- treatments_morts_dets %>%
-  mutate(time = ifelse(Day %% 1 == 0, "Night", "Day"))
+  mutate(time = ifelse(Day %% 1 == 0, "Night", "Day")) %>%
+  mutate(third = case_when(
+    Day < 10 ~ "Early",
+    Day >= 10 & Day < 20 ~ "Mid",
+    Day >= 20 ~ "Late"
+  ))
 
 ```
 
@@ -289,19 +294,126 @@ ggplot(df_hr, aes(x = time, y = HR)) +
   theme_minimal(base_size = 14)
 ```
 
+
+
 ## Chi square/Fisher exact for comparisons without continuous time componant ##
 
-
+Data formatting
 ```{r}
 
-ctable_cause <- xtabs(~ treatment + Cause, data = treatments_morts_dets)
+#Attributing the causese that include both moult failure and cannibalism to the 'primary' cause of mortality IE did it start struggling with moulting or have a cannibalism attempt first? 
+treatments_morts_simplify <- treatments_morts_dets %>%
+filter( status == 1) %>%
+  mutate(Cause = ifelse(Cause == "Moult Failure + Cannibalism", "Moult Failure", Cause)) %>%
+mutate(Cause = ifelse(Cause == "Cannibalism + Moult Failure", "Cannibalism", Cause)) 
 
-ctable_stage <- xtabs(~ treatment + Stage, data = treatments_morts_dets)
+  
+ctable_cause <- xtabs(~ treatment + Cause, data = treatments_morts_simplify) 
+ctable_stage <- xtabs(~ treatment + Stage, data = treatments_morts_simplify) 
+ctable_time <- xtabs(~ treatment + time, data = treatments_morts_simplify) 
 
-ctable_time <- xtabs(~ treatment + time, data = treatments_morts_dets)
+#ctable_cause
+#ctable_stage
+#ctable_time
 
+fisher_cause <- fisher.test(ctable_cause)
+fisher_cause
+#fisher_stage <- fisher.test(ctable_stage)
+#fisher_time <- fisher.test(ctable_time)
 
+fisher_by_category(ctable_cause)
 
+# Run Fisher for each cause
+fisher_by_category <- function(tab) {
+results <- sapply(1:ncol(tab), function(i) {
+  tmp <- tab[, i, drop = FALSE]  # 2x1 column
+  # Make 2x2 table: cause vs all other deaths
+  cause_table <- matrix(c(tab[1, i], sum(tab[1, -i]),
+                          tab[2, i], sum(tab[2, -i])),
+                        nrow = 2, byrow = TRUE)
+  fisher.test(cause_table)$p.value
+})
+
+# Adjust for multiple testing (optional)
+results_adj <- p.adjust(results, method = "bonferroni")
+
+# Combine into a tidy table
+cause_results <- data.frame(
+  Cause = colnames(tab),
+  raw_p = results,
+  bonferroni_p = results_adj
+)
+
+cause_results
+}
+```
+
+Function to run all possible pairwaise fishers to determine where differences lie
+```{r}
+pairwise_fisher_heat <- function(tab, alpha = 0.05) {
+  if (!is.matrix(tab) & !is.table(tab)) stop("Input must be a matrix or table.")
+  if (nrow(tab) < 2) stop("Table must have at least 2 rows for pairwise comparison.")
+  
+  # Generate all pairwise combinations of rows
+  row_pairs <- combn(rownames(tab), 2, simplify = FALSE)
+  
+  results <- lapply(row_pairs, function(p) {
+    subtab <- tab[p, , drop = FALSE]  # 2xN table
+    res <- fisher.test(subtab)
+    data.frame(
+      row1 = p[1],
+      row2 = p[2],
+      raw_p = res$p.value
+    )
+  })
+  
+  # Combine results
+  df <- do.call(rbind, results)
+  
+  # Bonferroni correction
+  df$bonferroni_p <- p.adjust(df$raw_p, method = "bonferroni")
+  
+  # Flag significant comparisons
+  df$significant <- df$bonferroni_p < alpha
+  
+  # Create matrix-style heat (optional)
+  sig_matrix <- matrix(FALSE, nrow = nrow(tab), ncol = nrow(tab),
+                       dimnames = list(rownames(tab), rownames(tab)))
+  for (i in 1:nrow(df)) {
+    r1 <- df$row1[i]
+    r2 <- df$row2[i]
+    sig_matrix[r1, r2] <- df$significant[i]
+    sig_matrix[r2, r1] <- df$significant[i]  # symmetric
+  }
+  
+  return(list(pairwise_results = df,
+              significance_matrix = sig_matrix))
+}
+
+```
+
+Function for testing if chi square or fisher exact is more appropriate based on expected counts in contingency table
+```{R}
+
+run_chi_or_fisher <- function(tab) {
+  # tab = contingency table (matrix or from xtabs)
+  
+  # Run chi-square without printing immediately
+  chi <- suppressWarnings(chisq.test(tab))
+  
+  # Check smallest expected count
+  min_expected <- min(chi$expected)
+  
+  if (min_expected < 5) {
+    message("Some expected counts < 5. Using Fisher’s Exact Test instead.")
+    return(fisher.test(tab))
+  } else {
+    message("All expected counts >= 5. Using Chi-square Test.")
+    return(chi)
+  }
+}
+
+#run_chi_or_fisher(table_x)
 ```
 
 
