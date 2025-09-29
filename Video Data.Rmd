@@ -3,7 +3,7 @@ title: "Video Data"
 output: html_document
 ---
 
-## Start up chunk ###
+## Start up chunk ##
 
 Prep libraries and import datasheets
 ```{r}
@@ -11,7 +11,6 @@ Prep libraries and import datasheets
 library(tidyverse)
 library(coxme)
 library(survival)
-library(survminer)
 
 video_events <- read_csv("video Notable Events.csv")
 video_morts <- read_csv("Mort Counts for Vid Analysis.csv")
@@ -44,6 +43,7 @@ realtime_events <- realtime_events %>%
 
 ```
 
+
 Summary table event counts for ease of graphing 
 ```{r}
 events_summary <- realtime_events %>%
@@ -51,6 +51,7 @@ events_summary <- realtime_events %>%
   group_by(camera.x, event_true_date, event_type) %>%
   summarise(count = n(), .groups = "drop")
 ```
+
 
 Making appropriate data frame for survival curve
 ```{r}
@@ -107,7 +108,8 @@ survival_for_curve <- survival_data %>%
 
 ```
 
-## Basic survival modeling and visualization between group and individual treatments ##
+
+## Survival modeling and visualization between group and individual treatments ##
 
 Kaplan-meier curves and log-rank test for diff between curves, no ability to cluster by tank within group treatment
 ```{r}
@@ -122,14 +124,14 @@ survival_for_curve$tank_or_indiv <- ifelse(is.na(survival_for_curve$Tank), "indi
 
 km_fit <- survfit(Surv(Day, status) ~ tank_or_indiv, data = survival_for_curve)
 
-#base r plot of kaplan myer with all tanks seperated to show they have similar pattern
+#base r plot of kaplan meier with all tanks separated to show they have similar pattern
 
 plot(km_fit, 
      xlab = "Time (Days)", 
      ylab = "Survival Probability",
      lwd = 2, col = 1:5)
 
-# Open a new plotting window (or PDF/PNG) to generate seperate figure for legend so it is not ugly
+# Open a new plotting window (or PDF/PNG) to generate separate figure for legend so it is not ugly
 dev.new()  # on RStudio or base R; for saving use png()/pdf()
 
 # Empty plot
@@ -141,20 +143,20 @@ legend("center", legend = c("Tank 1", "Tank 2", "Tank 3", "Tank 4", "Individuals
 ```
 
 
-Cox proportional hazard models that do not work because of HP assumption, visual of HP assumption indicates changing hazard proportion between groups over time. Two types of cox accounting for clustering in dif ways
+Base Cox proportional hazard models that do not work because of PH assumption, visual of PH assumption indicates changing hazard proportion between groups over time. Two types of cox accounting for tank clustering in diff ways
 ```{r}
 
 #Cox
 # (A) Cox mixed-effects model with tank random intercept (frailty) using coxme
-# This treats each group tank as a clustering level ; for individual animals their 'tank' is unique. Treats tank as random effect, assumes each tank has random baseline hazard andand estimates variance componant at tank level. Gives fixed effect for treatment and random effect for tank variance. Useful if you want to model tank-to-tank heterogeneity explicitly, not just adjust SEs, output includes frailty variance, but p-values may be approximate.
+# This treats each group tank as a clustering level ; for individual animals their 'tank' is unique. Treats tank as random effect, assumes each tank has random baseline hazard and estimates variance componant at tank level. Gives fixed effect for treatment and random effect for tank variance. Useful to model tank-to-tank heterogeneity explicitly, not just adjust SEs, output includes frailty variance, but p-values may be approximate.
 fit_coxme <- coxme(surv_obj ~ treatment + (1 | Tank), data = survival_for_curve)
 print(summary(fit_coxme))
 
-# (B) Alternative: Cox proportional hazards with cluster-robust SE (no random effect estimate). Treats tanks as clusters for robust SEs rather than random effects. Gives treatment effect only but adjusts standard error to account for in-tank correlation. Treatment HR is effect at pop level, SEs and P values should be robust to in-tank correlation. No random effect estimate, so you don’t get tank-specific baseline hazards, but I think that's ok because HP varies by time anyway. I went with this model.
+# (B) Alternative: Cox proportional hazards with cluster-robust SE (no random effect estimate). Treats tanks as clusters for robust SEs rather than random effects. Gives treatment effect only but adjusts standard error to account for in-tank correlation. Treatment HR is effect at pop level, SEs and P values should be robust to in-tank correlation. No random effect estimate, so don’t get tank-specific baseline hazards, but I think that's ok because hazard seems vary by time anyway and tanks appear to have similar baseline hazard. I went with this model.
 fit_coxph_cluster <- coxph(surv_obj ~ treatment + cluster(Tank), data = survival_for_curve)
 summary(fit_coxph_cluster)
 
-# PH assumption check for Cox model (note: coxme has limitations here, HP must be consistant over time, shown by horiz lines on plot check)
+# PH assumption check for Cox model (note: coxme has limitations here, PH must be consistant over time, shown by horiz lines on plot check)
 # ---------------------------
 #for the cox me model:
 zph <- cox.zph(fit_coxme)
@@ -167,15 +169,15 @@ print(zph)
 plot(zph)  
 
 # visual check: lines close to horizontal indicate PH reasonable
-#Not so, it seems proportional hazard of death between individual and group may change over time, makes sense, few individual deaths toward end. P values indicat the same in both cases
+#Not so, it seems proportional hazard of death between individual and group may change over time, makes sense, few individual deaths toward end. P values of zph indicate the same in both cases
 
 ```
 
 Taking previous chunk cox model with cluster (option b) and adding time-varying coefficient to allow interaction with log(time). 
 ```{r}
 
-# Round 2, trying cox with time varying treatment effect as base data does not meet PH assumption
-# Cox model with time-varying coefficient for treatment
+# Round 2, trying cox with time varying treatment effect as data does not meet PH assumption
+# Cox model with time-varying coefficient for treatment 
 survival_for_curve$treat_num <- ifelse(survival_for_curve$treatment == "group", 1, 0)
 
 cox_tv <- coxph(Surv(Day, status) ~ treat_num + tt(treat_num) + cluster(Tank),
@@ -185,11 +187,11 @@ cox_tv <- coxph(Surv(Day, status) ~ treat_num + tt(treat_num) + cluster(Tank),
 # cluster (Tank) tells the model that observations within the same tank are correlated, not independent and adjusts the standard errors and test statistics accordingly (robust sandwich variance), which allows you to still estimate a treatment-level effect while accounting for tank clustering.
 
 summary(cox_tv)
-# both treatment number (1,0 individual vs. grouped) and tt()
+# both treatment number (1,0, group vs. individual) and tt()
 
-# p value for both treat_num (individual vs grouped) and tt(treat_num) are significant, which, with some consultation with chat gpt, means that there is a significant difference between treatments and that the hazard ratio between them varies significantly over time
+# p value for both treat_num (individual vs grouped) and tt(treat_num) are significant, which, with some consultation with chat gpt, means that there is a significant difference between treatments and that the hazard ratio between them varies significantly over time. I think
 
-#Attempting to visualize
+#Attempting to visualize, chat assisted, might be garbage
 
 # Extract coefficients
 b <- coef(cox_tv)
@@ -208,13 +210,13 @@ plot(time_grid, HR_t, type = "l", lwd = 2,
      )
 abline(h = 1, lty = 2, col = "grey")
 
-#Nice, so allegedly this show that there is nearly a 20x increased
+#Allegedly shows that the proportional hazard of instantaneous death in group vs. individual is like 20 higher by end? Seems a little sus
 
 ```
 
 Testing if linear or log-transformed t covariate cox is a better model 
 ```{r}
-# Results are essentially the same, log is like 0.5 higher which allegedly means the models both fit about equally well. Go with log? 
+# Results are essentially the same, log AIC result is like 0.5 higher which allegedly means the models both fit about equally well. Go with log because everyone loves log time? 
 
 cox_linear <- coxph(Surv(Day, status) ~ treat_num + tt(treat_num) + cluster(Tank), 
                     data = survival_for_curve, 
@@ -226,7 +228,7 @@ AIC(cox_linear, cox_log)
 ```
 
 
-#Chattage better version of hazard raio from above with ggplot
+#Chattage better? version of hazard ratio plot from above with ggplot
 ```{r}
 library(ggplot2)
 
@@ -273,7 +275,7 @@ ggplot(df_hr, aes(x = time, y = HR)) +
   theme_minimal(base_size = 14)
 ```
 
-### new
+### Data wrangling WORK IN PROGRESS for possible competing hazard model for cause of death, not current priority. Turns categoricals into number codes in the dataset formatted for survival curves
 ```{r}
 # Turning words into numbers for easier modeling
 # Causes of mortality
@@ -286,7 +288,7 @@ treatments_morts_dets$Stage <- moult_map[treatments_morts_dets$Stage]
 ```
 
 
-### Bar Graphs ###
+### Obnoxious Bar Graphs for initial visualization ###
 
 Bar chart for notable events in dif cams
 ```{r}
@@ -340,7 +342,7 @@ group_by(event_type, mort_moult_stage, time_of_day) %>%
        y = "Count") +
   theme_minimal()
 
-#Having the one 'moulting' bar is really ugly and hard to interpret, maybe should go back and re-watch, classify as either pre, post or unkown. I remeber that vid and it is weird, but the animal DOES appear to be cannibalized immediatedly as it beigns to moult, not after
+#Having the one 'moulting' bar is really ugly and hard to interpret, need to fix if using some iteration of this graph in presentation
 
 ```
 
@@ -379,7 +381,7 @@ ggplot(aes(x = event_true_date, y = count, fill = event_type)) +
 
 ## Other initial visualizations ##
 
-Moult/Mort visualization by tank point graph thingy, pretty cool
+Moult/Mort visualization by tank frequency point graph thingy, kind of cool visualization 
 ```{r}
 realtime_events %>%
 filter(event_type != "Test") %>%
@@ -389,6 +391,7 @@ ggplot() +
   labs(x = "Time", y = "Tank", color = "Event Type") +
   theme_minimal()
 ```
+
 
 
 
