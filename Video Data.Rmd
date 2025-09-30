@@ -131,10 +131,19 @@ survival_for_curve <- survival_data %>%
 Kaplan-meier curves and log-rank test for diff between curves, no ability to cluster by tank within group treatment
 ```{r}
 
+#Make curve df without individuals
+survivalCurve_groupOnly <- survival_for_curve %>%
+  filter(treatment == "group")
+
 #surv curves for individual vs. group putting all grouped tanks together as a treatment
 surv_obj <- Surv(time = survival_for_curve$Day, event = survival_for_curve$status)
 
 survdiff(surv_obj ~ treatment, data = survival_for_curve) #Performs log-rank test to look for differences between survival curves. this groups all the tanks together so it's just grouped vs individual as big groups, cox needed to seperate i think
+
+#surv curves for group only by tank to make sure they aren't significantly different
+surv_objGROUP <- Surv(time = survivalCurve_groupOnly$Day, event = survivalCurve_groupOnly$status)
+survdiff(surv_objGROUP ~ Tank, data = survivalCurve_groupOnly)
+
 
 #Kaplan Myer fit with each tank seperated out for visualization
 survival_for_curve$tank_or_indiv <- ifelse(is.na(survival_for_curve$Tank), "individual", survival_for_curve$Tank)
@@ -146,7 +155,7 @@ km_fit <- survfit(Surv(Day, status) ~ tank_or_indiv, data = survival_for_curve)
 plot(km_fit, 
      xlab = "Time (Days)", 
      ylab = "Survival Probability",
-     lwd = 2, col = 1:5)
+     lwd = 2, col = c("turquoise3", "steelblue3", "navyblue", "slategray4", "palegreen3" ))
 
 # Open a new plotting window (or PDF/PNG) to generate separate figure for legend so it is not ugly
 dev.new()  # on RStudio or base R; for saving use png()/pdf()
@@ -156,7 +165,7 @@ plot.new()
 
 #generate legend for prev graph
 legend("center", legend = c("Tank 1", "Tank 2", "Tank 3", "Tank 4", "Individuals"),
-       col = 1:5, lwd = 2)  
+       col = c("turquoise3", "steelblue3", "navyblue", "slategray4", "palegreen3" ), lwd = 2)  
 ```
 
 
@@ -316,14 +325,25 @@ ctable_time <- xtabs(~ treatment + time, data = treatments_morts_simplify)
 #ctable_stage
 #ctable_time
 
-fisher_cause <- fisher.test(ctable_cause)
-fisher_cause
+#fisher_cause <- fisher.test(ctable_cause)
+#fisher_cause
 #fisher_stage <- fisher.test(ctable_stage)
-#fisher_time <- fisher.test(ctable_time)
+#fisher_stage
+fisher_time <- fisher.test(ctable_time)
+fisher_time
 
-fisher_by_category(ctable_cause)
+fisher_by_category(ctable_time)
 
-# Run Fisher for each cause
+
+#code to look at chi square residuals as another check to see what's influencing significant differences (even if doesn't meet assumptions for chi), internet says absolute >2 is usually impactful
+chi <- chisq.test(ctable_time, simulate.p.value = TRUE)
+residuals <- (ctable_time - chi$expected) / sqrt(chi$expected)
+residuals
+```
+
+Function to run pairwise fisher for each category table columns
+```{r}
+
 fisher_by_category <- function(tab) {
 results <- sapply(1:ncol(tab), function(i) {
   tmp <- tab[, i, drop = FALSE]  # 2x1 column
@@ -395,22 +415,15 @@ pairwise_fisher_heat <- function(tab, alpha = 0.05) {
 Function for testing if chi square or fisher exact is more appropriate based on expected counts in contingency table
 ```{R}
 
-run_chi_or_fisher <- function(tab) {
+expecteds <- function(tab) {
   # tab = contingency table (matrix or from xtabs)
   
   # Run chi-square without printing immediately
   chi <- suppressWarnings(chisq.test(tab))
   
-  # Check smallest expected count
-  min_expected <- min(chi$expected)
+  # Return expecteds
+  chi$expected
   
-  if (min_expected < 5) {
-    message("Some expected counts < 5. Using Fisher’s Exact Test instead.")
-    return(fisher.test(tab))
-  } else {
-    message("All expected counts >= 5. Using Chi-square Test.")
-    return(chi)
-  }
 }
 
 #run_chi_or_fisher(table_x)
@@ -534,4 +547,51 @@ ggplot() +
   theme_minimal()
 ```
 
+## Plots for presentation ##
 
+Bar plot percent mortality
+```{r}
+plot_data <- treatments_morts_dets %>%
+  group_by(treatment) %>%
+  summarise(
+    num_dead = sum(status == 1),
+    total = n(),
+    percent_dead = (num_dead / total) * 100,
+    mean = mean(percent_dead),
+    se = sd(percent_dead) / sqrt(n()),   # standard error
+    .groups = "drop"
+  )
+  
+
+# Optional: order treatments from lowest to highest mortality
+plot_data <- plot_data %>%
+  mutate(treatment = fct_reorder(treatment, percent_dead))
+
+# Plot
+ggplot(plot_data, aes(x = treatment, y = percent_dead, fill = treatment)) +
+  geom_col() +
+  geom_text(aes(label = sprintf("%.1f%%", percent_dead)),
+            vjust = -0.5, size = 4) + # adds % labels above bars
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # space for labels
+  scale_fill_manual(values = c("individual" = "palegreen3", 
+                               "group" = "steelblue3"))+ 
+   scale_x_discrete(labels = c("individual" = "Isolated",
+                              "group" = "Co-reared")) +
+  geom_errorbar(aes(ymin = mean - se, ymax = mean + se),
+                width = 0.2, size = 0.8) +
+  labs(
+    x = "Treatment",
+    y = "Mortality (%)"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")  # keeps axis lines
+  )
+  
+```
