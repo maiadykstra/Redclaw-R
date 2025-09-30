@@ -148,6 +148,7 @@ survdiff(surv_objGROUP ~ Tank, data = survivalCurve_groupOnly)
 #Kaplan Myer fit with each tank seperated out for visualization
 survival_for_curve$tank_or_indiv <- ifelse(is.na(survival_for_curve$Tank), "individual", survival_for_curve$Tank)
 
+# tanks graphed separately
 km_fit <- survfit(Surv(Day, status) ~ tank_or_indiv, data = survival_for_curve)
 
 #base r plot of kaplan meier with all tanks separated to show they have similar pattern
@@ -155,7 +156,7 @@ km_fit <- survfit(Surv(Day, status) ~ tank_or_indiv, data = survival_for_curve)
 plot(km_fit, 
      xlab = "Time (Days)", 
      ylab = "Survival Probability",
-     lwd = 2, col = c("turquoise3", "steelblue3", "navyblue", "slategray4", "palegreen3" ))
+     lwd = 2, col = c("turquoise3", "steelblue3", "navyblue", "slategray4", "palegreen3" )) # change pale green to #FF000000 to temporarily remove individual line for presentation plot
 
 # Open a new plotting window (or PDF/PNG) to generate separate figure for legend so it is not ugly
 dev.new()  # on RStudio or base R; for saving use png()/pdf()
@@ -166,6 +167,25 @@ plot.new()
 #generate legend for prev graph
 legend("center", legend = c("Tank 1", "Tank 2", "Tank 3", "Tank 4", "Individuals"),
        col = c("turquoise3", "steelblue3", "navyblue", "slategray4", "palegreen3" ), lwd = 2)  
+
+
+#tanks graphed together
+km_fit_lumped <- survfit(Surv(Day, status) ~ treatment, data = survival_for_curve)
+
+plot(km_fit_lumped, 
+     xlab = "Time (Days)", 
+     ylab = "Survival Probability",
+     lwd = 2, col = c("steelblue3", "palegreen3" ))
+
+# Open a new plotting window (or PDF/PNG) to generate separate figure for legend so it is not ugly
+dev.new()  # on RStudio or base R; for saving use png()/pdf()
+
+# Empty plot
+plot.new()
+
+#generate legend for prev graph
+legend("center", legend = c( "Co-reared", "Isolated"),
+       col = c("steelblue3", "palegreen3" ), lwd = 2)  
 ```
 
 
