@@ -615,3 +615,69 @@ ggplot(plot_data, aes(x = treatment, y = percent_dead, fill = treatment)) +
   )
   
 ```
+
+Bar plot isolated treatment causes of mortality 
+```{r}
+treatments_morts_simplify %>%
+  filter(treatment == "individual") %>%
+    group_by(Cause) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  ggplot(aes(x = Cause, y = count, fill = Cause)) +
+  geom_col(position = "dodge") +
+   scale_y_continuous(expand = c(0, 0)) + # removes gap between bars and x axis
+   scale_fill_manual(values = c("Moult Failure" = "palegreen3", 
+                               "Unknown" = "darkolivegreen4"))+ 
+   scale_x_discrete(labels = c("Moult Failure" = "Moult Failure",
+                              "Unknown" = "General Attrition")) +
+  labs(
+    x = "Cause of Death",
+    y = "Number of Mortalities"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")  # keeps axis lines
+  )
+  
+  
+```
+
+Bar for full causes of mortality co-reared
+```{r}
+# Looks good except need to change order of bars to make more sense
+treatments_morts_dets %>%
+  filter(treatment == "group") %>%
+  filter(status == 1) %>%
+    group_by(Cause) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  ggplot(aes(x = Cause, y = count, fill = Cause)) +
+  geom_col(position = "dodge") +
+   scale_y_continuous(expand = c(0, 0)) + # removes gap between bars and x axis
+   scale_fill_manual(values = c("Moult Failure" = "steelblue3",
+                              "Cannibalism" = "royalblue4",
+                              "Moult Failure + Cannibalism" = "cadetblue3", "Cannibalism + Moult Failure" = "slategray3"))+ 
+   scale_x_discrete(labels = c("Moult Failure" = "Moult Failure",
+                              "Cannibalism" = "Cannibalism",
+                              "Moult Failure + Cannibalism" = "Moult Failure -> Cannibalism", "Cannibalism + Moult Failure" = "Cannibalim -> Moult Failure")) +
+  labs(
+    x = "Cause of Death",
+    y = "Number of Mortalities"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")  # keeps axis lines
+  )
+  
+  
+```
