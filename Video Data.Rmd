@@ -138,6 +138,7 @@ survivalCurve_groupOnly <- survival_for_curve %>%
 #surv curves for individual vs. group putting all grouped tanks together as a treatment
 surv_obj <- Surv(time = survival_for_curve$Day, event = survival_for_curve$status)
 
+
 survdiff(surv_obj ~ treatment, data = survival_for_curve) #Performs log-rank test to look for differences between survival curves. this groups all the tanks together so it's just grouped vs individual as big groups, cox needed to seperate i think
 
 #surv curves for group only by tank to make sure they aren't significantly different
@@ -185,7 +186,42 @@ plot.new()
 
 #generate legend for prev graph
 legend("center", legend = c( "Co-reared", "Isolated"),
-       col = c("steelblue3", "palegreen3" ), lwd = 2)  
+       col = c("steelblue3", "palegreen3" ), lwd = 2)
+
+```
+
+KM for cannibalism by moult stage (this is sort of weird, not sure if it's a good representation)
+```{r}
+
+#Make curve df for cannibalism by moult stage, censors pure moult failure death
+survivalCurve_cann <- treatments_morts_dets %>%
+  filter(treatment == "group") %>%
+  mutate(status = ifelse(Cause == "Moult Failure", 0, status))
+  
+#log rank between stages
+surv_objCANN <- Surv(time = survivalCurve_cann$Day, event = survivalCurve_cann$status)
+survdiff(surv_objCANN ~ Stage, data = survivalCurve_cann)
+
+# curve for just group morts that involved cannibalism by moult stage
+km_fit_cann <- survfit(Surv(Day, status) ~ Stage, data = survivalCurve_cann)
+
+
+#base r plot of kaplan meier with all tanks separated to show they have similar pattern
+
+plot(km_fit_cann, 
+     xlab = "Time (Days)", 
+     ylab = "Survival Probability",
+     lwd = 2, col = c("slategray4", "navyblue", "turquoise3", "steelblue3" )) 
+
+# Open a new plotting window (or PDF/PNG) to generate separate figure for legend so it is not ugly
+dev.new()  # on RStudio or base R; for saving use png()/pdf()
+
+# Empty plot
+plot.new()
+
+#generate legend for prev graph
+legend("center", legend = c( "Co-reared", "Isolated"),
+       col = c("steelblue3", "palegreen3" ), lwd = 2)
 ```
 
 
@@ -622,9 +658,149 @@ treatments_morts_simplify %>%
   filter(treatment == "individual") %>%
     group_by(Cause) %>%
   summarise(count = n(), .groups = "drop") %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ggplot(aes(x = Cause, y = percent, fill = Cause)) +
+  geom_col(position = "dodge") +
+   geom_text(aes(label = sprintf("%.1f%%", percent)),
+            vjust = -0.5, size = 4) + # adds % labels above bars
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # space for labels
+   scale_fill_manual(values = c("Moult Failure" = "palegreen3", 
+                               "Unknown" = "darkolivegreen4"))+ 
+   scale_x_discrete(labels = c("Moult Failure" = "Moult Failure",
+                              "Unknown" = "General Attrition")) +
+  labs(
+    x = "Cause of Death",
+    y = "Percentage of Mortalities"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")  # keeps axis lines
+  )
+  
+  
+```
+
+Bar for full causes of mortality co-reared
+```{r}
+
+treatments_morts_dets %>%
+  filter(treatment == "group") %>%
+  filter(status == 1) %>%
+    group_by(Cause) %>%
+   mutate(Cause = factor(Cause, levels = c("Cannibalism", "Moult Failure", "Cannibalism + Moult Failure", "Moult Failure + Cannibalism"))) %>% # Set order
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ggplot(aes(x = Cause, y = percent, fill = Cause)) +
+ geom_text(aes(label = sprintf("%.1f%%", percent)),
+            vjust = -0.5, size = 4) + # adds % labels above bars
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # space for labels
+  geom_col(position = "dodge") +
+   scale_fill_manual(values = c("Moult Failure" = "steelblue3",
+                              "Cannibalism" = "royalblue4",
+                              "Moult Failure + Cannibalism" = "cadetblue3", "Cannibalism + Moult Failure" = "slategray3"))+ 
+   scale_x_discrete(labels = c("Moult Failure" = "Moult Failure",
+                              "Cannibalism" = "Cannibalism",
+                              "Moult Failure + Cannibalism" = "Moult Failure -> Cannibalism", "Cannibalism + Moult Failure" = "Cannibalism -> Moult Failure")) +
+  labs(
+    x = "Cause of Death",
+    y = "Percentage of Mortalities"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")  # keeps axis lines
+  )
+  
+  
+```
+
+Bar for condensed cause of mortality co-reared
+```{r}
+
+treatments_morts_simplify %>%
+  filter(treatment == "group") %>%
+    group_by(Cause) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ggplot(aes(x = Cause, y = percent, fill = Cause)) +
+ geom_text(aes(label = sprintf("%.1f%%", percent)),
+            vjust = -0.5, size = 4) + # adds % labels above bars
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # space for labels
+  geom_col(position = "dodge") +
+   scale_fill_manual(values = c("Moult Failure" = "steelblue3",
+                              "Cannibalism" = "royalblue4"))+ 
+  labs(
+    x = "Cause of Death",
+    y = "Percentage of Mortalities"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")  # keeps axis lines
+  )
+  
+  
+```
+
+Bar for condensed cause of mortality co-reared (Raw count)
+```{r}
+
+treatments_morts_simplify %>%
+  filter(treatment == "group") %>%
+    group_by(Cause) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  ggplot(aes(x = Cause, y = count, fill = Cause)) +
+ geom_text(aes(label = count),
+            vjust = -0.5, size = 4) + # adds % labels above bars
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # space for labels
+  geom_col(position = "dodge") +
+   scale_fill_manual(values = c("Moult Failure" = "steelblue3",
+                              "Cannibalism" = "royalblue4"))+ 
+  labs(
+    x = "Cause of Death",
+    y = "Number of Mortalities"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")  # keeps axis lines
+  )
+  
+  
+```
+
+Bar plot isolated treatment causes of mortality  (raw counts)
+```{r}
+treatments_morts_simplify %>%
+  filter(treatment == "individual") %>%
+    group_by(Cause) %>%
+  summarise(count = n(), .groups = "drop") %>%
   ggplot(aes(x = Cause, y = count, fill = Cause)) +
   geom_col(position = "dodge") +
-   scale_y_continuous(expand = c(0, 0)) + # removes gap between bars and x axis
+   geom_text(aes(label = count),
+            vjust = -0.5, size = 4) + # adds % labels above bars
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # space for labels
    scale_fill_manual(values = c("Moult Failure" = "palegreen3", 
                                "Unknown" = "darkolivegreen4"))+ 
    scale_x_discrete(labels = c("Moult Failure" = "Moult Failure",
@@ -647,30 +823,112 @@ treatments_morts_simplify %>%
   
 ```
 
-Bar for full causes of mortality co-reared
+Both treatments stacked bar (raw count)
 ```{r}
-# Looks good except need to change order of bars to make more sense
-treatments_morts_dets %>%
-  filter(treatment == "group") %>%
-  filter(status == 1) %>%
-    group_by(Cause) %>%
+
+treatments_morts_simplify %>%
+    group_by(Cause, treatment) %>%
   summarise(count = n(), .groups = "drop") %>%
-  ggplot(aes(x = Cause, y = count, fill = Cause)) +
-  geom_col(position = "dodge") +
-   scale_y_continuous(expand = c(0, 0)) + # removes gap between bars and x axis
-   scale_fill_manual(values = c("Moult Failure" = "steelblue3",
+  mutate(Cause = factor(Cause, levels = c("Cannibalism","Unknown","Moult Failure"))) %>% # Set order
+  ggplot(aes(x = treatment, y = count, fill = Cause)) +
+  geom_col(position = "stack") +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1)))+
+   scale_fill_manual(values = c("Moult Failure" = "grey",
                               "Cannibalism" = "royalblue4",
-                              "Moult Failure + Cannibalism" = "cadetblue3", "Cannibalism + Moult Failure" = "slategray3"))+ 
-   scale_x_discrete(labels = c("Moult Failure" = "Moult Failure",
+                              "Unknown" = "darkolivegreen4"), 
+                     labels = c("Moult Failure" = "Moult Failure",
                               "Cannibalism" = "Cannibalism",
-                              "Moult Failure + Cannibalism" = "Moult Failure -> Cannibalism", "Cannibalism + Moult Failure" = "Cannibalim -> Moult Failure")) +
+                              "Unknown" = "General Attrition"))+ 
+  scale_x_discrete(labels = c("group" = "Co-reared",
+                              "individual" = "Isolated")) +
   labs(
-    x = "Cause of Death",
+    x = "Treatment",
     y = "Number of Mortalities"
   ) +
   theme_minimal(base_size = 14) +
   theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")  # keeps axis lines
+  )
+  
+  
+```
+
+Cannibalism by moult stage bar plot
+```{r}
+
+treatments_morts_dets %>%
+  filter(treatment == "group") %>%
+  filter(status == 1) %>%
+  filter(Cause != "Moult Failure") %>%
+    group_by(Stage) %>%
+   mutate(Stage = factor(Stage, levels = c("Pre-moult", "Moulting", "Post-moult", "Inter-moult"))) %>% # Set order
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+  ggplot(aes(x = Stage, y = percent, fill = Stage)) +
+ geom_text(aes(label = sprintf("%.1f%%", percent)),
+            vjust = -0.5, size = 4) + # adds % labels above bars
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # space for labels
+  geom_col(position = "dodge") +
+   scale_fill_manual(values = c("Pre-moult" = "steelblue3",
+                              "Moulting" = "royalblue4",
+                              "Post-moult" = "cadetblue3", 
+                              "Inter-moult" = "slategray3"))+  
+  labs(
+    x = "Moult Stage when Cannibalized",
+    y = "Percentage of Mortalities"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
     legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")  # keeps axis lines
+  )
+  
+  
+```
+
+Cannibalism by time, stacked by moult stage
+```{r}
+
+treatments_morts_dets %>%
+  filter(treatment == "group") %>%
+  filter(status == 1) %>%
+  filter(Cause != "Moult Failure") %>%
+    group_by(Stage, third) %>%
+  mutate(Stage = factor(Stage, levels = c("Pre-moult", "Moulting", "Post-moult", "Inter-moult"))) %>% # Set order
+   mutate(third = factor(third, levels = c("Early", "Mid", "Late"))) %>% #order
+  summarise(count = n(), .groups = "drop") %>%
+  mutate(percent = (count / sum(count)) * 100) %>%
+ 
+  
+  ggplot(aes(x = third, y = percent, fill = Stage)) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # space for labels
+  geom_col(position = "fill") +
+   scale_fill_manual(values = c("Pre-moult" = "steelblue3",
+                              "Moulting" = "royalblue4",
+                              "Post-moult" = "cadetblue3", 
+                              "Inter-moult" = "slategray3"))+  
+   scale_x_discrete(labels = c("Early" = "1-10",
+                              "Mid" = "11-20",
+                              "Late" = "21-30")) +
+  labs(
+    x = "Days",
+    y = "Mortalities (%)",
+    fill = "Moult Stage"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
     plot.title = element_text(hjust = 0.5),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
