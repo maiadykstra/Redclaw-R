@@ -518,26 +518,52 @@ video_events %>%
 
 ```
 
-Bar chart showing notable events by time of day
+Bar chart showing notable events by time of day (error bars)
 ```{r}
 
-#create bar chart showing notable events sans test by time of day
+dodge <- position_dodge(width = 0.9)  # define once
+
 video_events %>%
-group_by(event_type, time_of_day) %>%
-  filter(event_type != "Test") %>%
-  filter(event_type != "Feed") %>%
-  summarize(count = n()) %>%
-  ggplot(aes(x = event_type, y = count, fill = time_of_day)) +
-  geom_bar(stat = "identity", position = "dodge", color = "darkslategray") +
+  filter(!event_type %in% c("Test", "Feed")) %>%
+ group_by(event_type, camera, time_of_day) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(camera) %>%                          # calculate percent per Tank
+  mutate(percent = count / sum(count) * 100) %>%
+  group_by(event_type, time_of_day) %>%                         # summarise across Tanks
+  summarise(
+    mean_percent = mean(percent),
+    sd_percent = sd(percent),
+    se_percent = sd_percent / sqrt(n()),
+    .groups = "drop"
+  ) %>%
+  
+  ggplot(aes(x = event_type, y = mean_percent, fill = time_of_day)) +
+  geom_col(color = "darkslategray", position = dodge) +
+  geom_errorbar(
+    aes(
+      ymin = pmax(0, mean_percent - se_percent),
+      ymax = mean_percent + se_percent
+    ),
+    width = 0.2,
+    color = "black",
+    position = dodge    # use same dodge object
+  ) +
+    geom_text(
+    aes(label = sprintf("%.1f%%", mean_percent),y = mean_percent + se_percent + 1),
+    vjust = -0.5,
+    size = 4,
+    color = "black",
+    position = dodge
+  ) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
-  scale_fill_manual(values = c("am" = "lightcyan2", 
-                               "pm" = "darkslategray"), 
-                    labels = c("am" = "Light",
-                              "pm" = "Dark"))+ 
+  scale_fill_manual(
+    values = c("am" = "lightcyan2", "pm" = "darkslategray"),
+    labels = c("am" = "Light", "pm" = "Dark")
+  ) +
   labs(
     x = "Event",
-    y = "Occurences",
-    fill = "Time of Day",
+    y = "Mean Percentage of Events (+/- SE)",
+    fill = "Time of Day"
   ) +
   theme_minimal(base_size = 14) +
   theme(
@@ -547,34 +573,59 @@ group_by(event_type, time_of_day) %>%
     panel.grid.minor = element_blank(),
     axis.title.x = element_text(margin = margin(t = 15)),
     axis.title.y = element_text(margin = margin(r = 15)),
-    axis.line = element_line(color = "black")  # keeps axis lines
+    axis.line = element_line(color = "black")
   )
-
 
 ```
 
-Bar chart showing cannibalism by moult stage
+Bar chart showing cannibalism by moult stage AND time of day (error bars)
 ```{r}
 
-#create bar chart total cannibalism morts by moult stage
+ dodge <- position_dodge(width = 0.9)
+
 video_events %>%
-group_by(event_type, mort_moult_stage, time_of_day) %>%
-  filter(mort_moult_stage != "NA") %>%
+  filter(!event_type %in% c("Test", "Feed")) %>%
+  filter(!is.na(mort_moult_stage)) %>%
   filter(mort_cause == "Cannibalism") %>%
-  summarize(count = n()) %>%
-   ggplot(aes(x = mort_moult_stage, y = count, fill = time_of_day)) +
-  geom_bar(stat = "identity", position = "dodge", color = "darkslategray") +
-  scale_y_continuous(
-  breaks = seq(0, 10, by = 2),     
-  expand = expansion(mult = c(0, 0.1)))  +
-  scale_fill_manual(values = c("am" = "lightcyan2", 
-                               "pm" = "darkslategray"), 
-                    labels = c("am" = "Light",
-                              "pm" = "Dark"))+ 
+  group_by(mort_moult_stage, camera, time_of_day) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(camera) %>%
+  mutate(percent = count / sum(count) * 100) %>%
+  group_by(mort_moult_stage, time_of_day) %>%
+  summarise(
+    n_obs = n(),
+    mean_percent = if(n() > 1) mean(percent) else percent,
+    sd_percent = if(n() > 1) sd(percent) else 0,
+    se_percent = if(n() > 1) sd_percent / sqrt(n()) else 0,
+    .groups = "drop"
+  ) %>%
+  ggplot(aes(x = mort_moult_stage, y = mean_percent, fill = time_of_day)) +
+  geom_col(color = "darkslategray", position = dodge) +
+  geom_errorbar(
+    aes(
+      ymin = pmax(0, mean_percent - se_percent),
+      ymax = mean_percent + se_percent
+    ),
+    width = 0.2,
+    color = "black",
+    position = dodge
+  ) +
+  geom_text(
+    aes(label = sprintf("%.1f%%", mean_percent), y = mean_percent + se_percent + 1),
+    vjust = -0.5,
+    size = 4,
+    color = "black",
+    position = dodge
+  ) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  scale_fill_manual(
+    values = c("am" = "lightcyan2", "pm" = "darkslategray"),
+    labels = c("am" = "Light", "pm" = "Dark")
+  ) +
   labs(
-    x = "Moult Stage when Cannibalized",
-    y = "Occurances",
-    fill = "Time of Day",
+    x = "Moult Stage",
+    y = "Mean Percentage of Cannibalism Occurrences (+/- SE)",
+    fill = "Time of Day"
   ) +
   theme_minimal(base_size = 14) +
   theme(
@@ -584,9 +635,8 @@ group_by(event_type, mort_moult_stage, time_of_day) %>%
     panel.grid.minor = element_blank(),
     axis.title.x = element_text(margin = margin(t = 15)),
     axis.title.y = element_text(margin = margin(r = 15)),
-    axis.line = element_line(color = "black")  # keeps axis lines
+    axis.line = element_line(color = "black")
   )
-
 #Having the one 'moulting' bar is really ugly and hard to interpret, need to fix if using some iteration of this graph in presentation
 
 ```
@@ -765,21 +815,51 @@ treatments_morts_dets %>%
   
 ```
 
-Bar for condensed cause of mortality co-reared
+Bar for condensed cause of mortality co-reared (with error bars)
 ```{r}
 
 treatments_morts_simplify %>%
-  filter(treatment == "group") %>%
-    group_by(Cause) %>%
+   filter(treatment == "group") %>%
+  group_by(Cause, Tank) %>%
   summarise(count = n(), .groups = "drop") %>%
-  mutate(percent = (count / sum(count)) * 100) %>%
-  ggplot(aes(x = Cause, y = percent, fill = Cause)) +
- geom_text(aes(label = sprintf("%.1f%%", percent)),
-            vjust = -0.5, size = 4) + # adds % labels above bars
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # space for labels
-  geom_col(position = "dodge") +
-   scale_fill_manual(values = c("Moult Failure" = "steelblue3",
-                              "Cannibalism" = "royalblue4"))+ 
+  group_by(Tank) %>%                          # calculate percent per Tank
+  mutate(percent = count / sum(count) * 100) %>%
+  group_by(Cause) %>%                         # summarise across Tanks
+  summarise(
+    mean_percent = mean(percent),
+    sd_percent = sd(percent),
+    se_percent = sd_percent / sqrt(n()),
+    .groups = "drop"
+  ) %>%
+  
+   # 5. Plot
+  ggplot(aes(x = Cause, y = mean_percent, fill = Cause)) +
+  geom_col(color = "black", width = 0.7) +
+  
+  # 6. Error bars, bounded at zero
+  geom_errorbar(
+    aes(
+      ymin = pmax(0, mean_percent - se_percent),
+      ymax = mean_percent + se_percent
+    ),
+    width = 0.2,
+    color = "black"
+  ) +
+  
+  # 7. Labels above bars
+  geom_text(
+    aes(label = sprintf("%.1f%%", mean_percent),y = mean_percent + se_percent + 1),
+    vjust = -0.5,
+    size = 4,
+    color = "black"
+  ) +
+  
+  # 8. Formatting
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  scale_fill_manual(values = c(
+    "Moult Failure" = "steelblue3",
+    "Cannibalism"   = "royalblue4"
+  )) +
   labs(
     x = "Cause of Death",
     y = "Percentage of Mortalities"
@@ -787,14 +867,12 @@ treatments_morts_simplify %>%
   theme_minimal(base_size = 14) +
   theme(
     legend.position = "none",
-    plot.title = element_text(hjust = 0.5),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.title.x = element_text(margin = margin(t = 15)),
     axis.title.y = element_text(margin = margin(r = 15)),
-    axis.line = element_line(color = "black")  # keeps axis lines
+    axis.line = element_line(color = "black")
   )
-  
   
 ```
 
@@ -901,30 +979,55 @@ treatments_morts_simplify %>%
   
 ```
 
-Cannibalism by moult stage bar plot
+Cannibalism by moult stage bar plot (error bars)
 ```{r}
 
-treatments_morts_dets %>%
-  filter(treatment == "group") %>%
-  filter(status == 1) %>%
+treatments_morts_simplify %>%
+   filter(treatment == "group") %>%
   filter(Cause != "Moult Failure") %>%
-    group_by(Stage) %>%
+  group_by(Stage, Tank) %>%
    mutate(Stage = factor(Stage, levels = c("Pre-moult", "Moulting", "Post-moult", "Inter-moult"))) %>% # Set order
   summarise(count = n(), .groups = "drop") %>%
-  mutate(percent = (count / sum(count)) * 100) %>%
+  group_by(Tank) %>%                          # calculate percent per Tank
+  mutate(percent = count / sum(count) * 100) %>%
+  group_by(Stage) %>%                         # summarise across Tanks
+  summarise(
+    mean_percent = mean(percent),
+    sd_percent = sd(percent),
+    se_percent = sd_percent / sqrt(n()),
+    .groups = "drop"
+  ) %>%
   
-  ggplot(aes(x = Stage, y = percent, fill = Stage)) +
- geom_text(aes(label = sprintf("%.1f%%", percent)),
-            vjust = -0.5, size = 4) + # adds % labels above bars
-  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) + # space for labels
-  geom_col(position = "dodge", color = "black") +
+   # 5. Plot
+  ggplot(aes(x = Stage, y = mean_percent, fill = Stage)) +
+  geom_col(color = "black", width = 0.7) +
+  
+  # 6. Error bars, bounded at zero
+  geom_errorbar(
+    aes(
+      ymin = pmax(0, mean_percent - se_percent),
+      ymax = mean_percent + se_percent
+    ),
+    width = 0.2,
+    color = "black"
+  ) +
+  
+  # 7. Labels above bars
+  geom_text(
+    aes(label = sprintf("%.1f%%", mean_percent),y = mean_percent + se_percent + 1),
+    vjust = -0.5,
+    size = 4,
+    color = "black"
+  ) +
+   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+
    scale_fill_manual(values = c("Pre-moult" = "steelblue3",
                               "Moulting" = "royalblue4",
                               "Post-moult" = "cadetblue3", 
                               "Inter-moult" = "slategray3"))+  
   labs(
     x = "Moult Stage when Cannibalized",
-    y = "Percentage of Mortalities"
+    y = "Mean Percentage of Mortalities (± SE)"
   ) +
   theme_minimal(base_size = 14) +
   theme(
