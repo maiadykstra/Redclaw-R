@@ -274,7 +274,7 @@ Time varying options for cox model to show increase in hazard for co-reared late
 ```{r}
 #Is one or the other of these better? PH assumption can't be tested for TV because it obviously is intended to vary by time. Assumption is met for interval. Report both? 
 
-# Cox model with time-varying coefficient for treatment. Treatment is not significant, time-treatment is significant. Chat tells me this means there isn't a significant impact at the beginning but it increases significantly over time? True? 
+# Cox model with time-varying coefficient for treatment. tt term allows for interaction with log(time) to address the fact that the PH is not the same over time. Treatment is not significant, time-treatment is significant. Chat tells me this means there isn't a significant impact at the beginning but it increases significantly over time? True? 
 survival_for_curve <- survival_for_curve %>%
 mutate(treat_num = ifelse(survival_for_curve$treatment == "group", 1, 0) ) %>%
   mutate(third = ifelse((Day <= 10), "early", ifelse((Day > 10 & Day <= 20), "mid", "late")))
@@ -287,7 +287,7 @@ cox_tv <- coxph(Surv(Day, status) ~ treatment + tt(treat_num),
 summary(cox_tv)
 
 
-# Stratified by first week vs. rest, shows significant impact of treatment at beginning and significant increase in hazard after first week. 
+# Stratified by first week vs. rest, shows significant impact of treatment at beginning and significant increase in hazard after first week. I think.
 
 coxstrat_long <- survSplit(Surv(Day, status) ~ .,
                      data = survival_for_curve,
@@ -320,12 +320,6 @@ plot(zph)
 
 
 
-# tt term allows for interaction with log(time) to address the fact that the PH is not the same over time
-
-
-# both treatment number (1,0, group vs. individual) and tt()
-
-
 ```
 
 Testing if linear or log-transformed t covariate cox is a better model 
@@ -341,6 +335,30 @@ cox_log <- cox_tv  # current model with log(t)
 AIC(cox_linear, cox_log)
 ```
 
+Moult stage x cannibalism
+```{r}
+# Binary encode cause
+cann_by_moult <- treatments_morts_dets %>%
+  filter(treatment == "group") %>% 
+  filter(status == 1) %>%  
+  filter(Cause != "Moult Failure") %>% # only dead individuals
+  mutate(moult_bin = ifelse(Stage == "Post-moult", 1, ifelse(Stage == "Moulting", 1, 0)))
+
+
+# Fit logistic regression
+model <- glm(moult_bin ~ Day, data = cann_by_moult, family = binomial)
+
+summary(model)
+
+# Need to fix formatting on this to make it less ugly, add theme created for presentaiton
+ggplot(cann_by_moult, aes(x = Day, y = moult_bin)) +
+  geom_jitter(height = 0.05, width = 0) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),
+              se = TRUE, color = "blue") +
+  ylab("Probability Cannibalism Victim is Moulting/Post-Moult") +
+  xlab("Days")
+
+```
 
 ## Chi square/Fisher exact for comparisons without continuous time componant ##
 
@@ -353,21 +371,23 @@ filter( status == 1) %>%
   mutate(Cause = ifelse(Cause == "Moult Failure + Cannibalism", "Moult Failure", Cause)) %>%
 mutate(Cause = ifelse(Cause == "Cannibalism + Moult Failure", "Cannibalism", Cause)) 
 
+simplify_group <- treatments_morts_simplify %>%
+  filter(treatment == "group")
+
   
 ctable_cause <- xtabs(~ treatment + Cause, data = treatments_morts_simplify) 
 ctable_stage <- xtabs(~ treatment + Stage, data = treatments_morts_simplify) 
 ctable_time <- xtabs(~ treatment + time, data = treatments_morts_simplify) 
 
-#ctable_cause
-#ctable_stage
-#ctable_time
+ctable_group_cause <- xtabs(~ third + Cause, data = simplify_group)
+ctable_tank_cause <- xtabs(~ Tank + Cause, data = simplify_group)
 
-fisher_cause <- fisher.test(ctable_cause)
+# Difference between cannibalism cause and moult cause deaths in group, shapiro wilk test says not normal so used wilcoxen
+wilcox.test(ctable_tank_cause)
+
+fisher_cause <- fisher.test(ctable_group_cause)
 fisher_cause
-#fisher_stage <- fisher.test(ctable_stage)
-#fisher_stage
-#fisher_time <- fisher.test(ctable_time)
-#fisher_time
+
 
 fisher_by_category(ctable_cause)
 
