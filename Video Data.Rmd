@@ -225,8 +225,12 @@ legend("center", legend = c( "Co-reared", "Isolated"),
 ```
 
 
-Base Cox proportional hazard models that do not work because of PH assumption, visual of PH assumption indicates changing hazard proportion between groups over time. Two types of cox accounting for tank clustering in diff ways
+## Cox Models ##
+
+Base Cox model + models for clustering
 ```{r}
+
+#Base cox model for treatment, does not meet ph
 fit_cox <- coxph(surv_obj ~ treatment, data = survival_for_curve)
 print(summary(fit_cox))
 
@@ -235,7 +239,8 @@ print(zph)
 plot(zph) 
 
 
-#Cox
+# Clustering models below. Neither of these are appropriate given small number of clusters. Base cox run with all replicates as seperate treatments finds no difference between tanks but a difference between each tank and individuals. Did not check ph for this yet, but hoping it can be used to justify not using clustering models because apparently they blow things up. 
+
 # (A) Cox mixed-effects model with tank random intercept (frailty) using coxme
 # This treats each group tank as a clustering level ; for individual animals their 'tank' is unique. Treats tank as random effect, assumes each tank has random baseline hazard and estimates variance componant at tank level. Gives fixed effect for treatment and random effect for tank variance. Useful to model tank-to-tank heterogeneity explicitly, not just adjust SEs, output includes frailty variance, but p-values may be approximate.
 fit_coxme <- coxme(surv_obj ~ treatment + (1 | Tank), data = survival_for_curve)
@@ -262,13 +267,14 @@ plot(zph)
 
 AIC(fit_coxme, fit_coxph_cluster)
 
+# AICs are comperable
 ```
 
-Taking previous chunk cox model with cluster (option b) and adding time-varying coefficient to allow interaction with log(time). <old title not what's here 
+Time varying options for cox model to show increase in hazard for co-reared late compared to early
 ```{r}
+#Is one or the other of these better? PH assumption can't be tested for TV because it obviously is intended to vary by time. Assumption is met for interval. Report both? 
 
-# Round 2, trying cox with time varying treatment effect as data does not meet PH assumption
-# Cox model with time-varying coefficient for treatment 
+# Cox model with time-varying coefficient for treatment. Treatment is not significant, time-treatment is significant. Chat tells me this means there isn't a significant impact at the beginning but it increases significantly over time? True? 
 survival_for_curve <- survival_for_curve %>%
 mutate(treat_num = ifelse(survival_for_curve$treatment == "group", 1, 0) ) %>%
   mutate(third = ifelse((Day <= 10), "early", ifelse((Day > 10 & Day <= 20), "mid", "late")))
@@ -278,11 +284,14 @@ cox_tv <- coxph(Surv(Day, status) ~ treatment + tt(treat_num),
                 data = survival_for_curve,
                 tt = function(x, t, ...) x * log(t))  
 
-# shitshow
+summary(cox_tv)
+
+
+# Stratified by first week vs. rest, shows significant impact of treatment at beginning and significant increase in hazard after first week. 
 
 coxstrat_long <- survSplit(Surv(Day, status) ~ .,
                      data = survival_for_curve,
-                     cut = 5,
+                     cut = 7,
                      start = "tstart",
                      end = "tstop",
                      event = "status",
@@ -290,13 +299,13 @@ coxstrat_long <- survSplit(Surv(Day, status) ~ .,
 
 coxstrat_long <- coxstrat_long %>%
   mutate(interval = cut(tstart,
-                        breaks = c(0, 5, Inf),
+                        breaks = c(0, 7, Inf),
                         labels = c("early", "rest"),
                         right = FALSE)) %>%
   # for rows with tstart == 0 the first cut created NA from above; recalc robustly:
   mutate(interval = case_when(
-    tstart < 5 ~ "early",
-    tstart == 5 ~ "rest",
+    tstart < 7 ~ "early",
+    tstart == 7 ~ "rest",
     TRUE ~ interval
   )) %>%
   mutate(interval = factor(interval, levels = c("early","rest")))
@@ -313,34 +322,9 @@ plot(zph)
 
 # tt term allows for interaction with log(time) to address the fact that the PH is not the same over time
 
-summary(cox_tv)
+
 # both treatment number (1,0, group vs. individual) and tt()
 
-summary(cox_strat)
-
-```
-
-```{r}
-#Attempting to visualize the above cox model, chat assisted, might be garbage
-
-# Extract coefficients
-b <- coef(cox_tv)
-b_treat <- b["treat_num"]
-b_tt <- b["tt(treat_num)"]
-
-# Time grid
-time_grid <- seq(1, max(survival_for_curve$Day), length.out = 100)
-
-# Hazard ratio over time
-HR_t <- exp(b_treat + b_tt * log(time_grid))
-
-plot(time_grid, HR_t, type = "l", lwd = 2,
-     xlab = "Time (days)", ylab = "Hazard Ratio (group vs individual)",
-     # main = "Time-varying Hazard Ratio"
-     )
-abline(h = 1, lty = 2, col = "grey")
-
-#Allegedly shows that the proportional hazard of instantaneous death in group vs. individual is like 20 higher by end? Seems a little sus
 
 ```
 
@@ -356,55 +340,6 @@ cox_log <- cox_tv  # current model with log(t)
 
 AIC(cox_linear, cox_log)
 ```
-
-
-#Chattage better? version of hazard ratio plot from above with ggplot
-```{r}
-library(ggplot2)
-
-# Variance-covariance matrix
-vc <- vcov(cox_tv)
-
-# Extract coefficients
-b_treat <- coef(cox_tv)["treat_num"]
-b_tt    <- coef(cox_tv)["tt(treat_num)"]
-
-# Time grid
-time_grid <- seq(1, max(survival_for_curve$Day), length.out = 100)
-
-# Linear predictor and variance
-lp <- b_treat + b_tt * log(time_grid)
-var_lp <- vc["treat_num","treat_num"] +
-          (log(time_grid)^2) * vc["tt(treat_num)","tt(treat_num)"] +
-          2 * log(time_grid) * vc["treat_num","tt(treat_num)"]
-
-# SE and 95% CI
-se_lp <- sqrt(var_lp)
-HR_t  <- exp(lp)
-lower <- exp(lp - 1.96 * se_lp)
-upper <- exp(lp + 1.96 * se_lp)
-
-# Put into data frame
-df_hr <- data.frame(
-  time  = time_grid,
-  HR    = HR_t,
-  lower = lower,
-  upper = upper
-)
-
-# Plot with ribbon
-ggplot(df_hr, aes(x = time, y = HR)) +
-  geom_ribbon(aes(ymin = lower, ymax = upper), fill = "lightblue", alpha = 0.4) +
-  geom_line(color = "blue", size = 1.2) +
-  geom_hline(yintercept = 1, linetype = "dashed", color = "grey40") +
-  labs(
-    x = "Time (days)",
-    y = "Hazard Ratio (group vs individual)",
-    title = "Time-varying Hazard Ratio with 95% CI"
-  ) +
-  theme_minimal(base_size = 14)
-```
-
 
 
 ## Chi square/Fisher exact for comparisons without continuous time componant ##
