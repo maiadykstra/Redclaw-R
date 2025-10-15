@@ -227,6 +227,13 @@ legend("center", legend = c( "Co-reared", "Isolated"),
 
 Base Cox proportional hazard models that do not work because of PH assumption, visual of PH assumption indicates changing hazard proportion between groups over time. Two types of cox accounting for tank clustering in diff ways
 ```{r}
+fit_cox <- coxph(surv_obj ~ treatment, data = survival_for_curve)
+print(summary(fit_cox))
+
+zph <- cox.zph(fit_cox)
+print(zph)
+plot(zph) 
+
 
 #Cox
 # (A) Cox mixed-effects model with tank random intercept (frailty) using coxme
@@ -257,25 +264,64 @@ AIC(fit_coxme, fit_coxph_cluster)
 
 ```
 
-Taking previous chunk cox model with cluster (option b) and adding time-varying coefficient to allow interaction with log(time). 
+Taking previous chunk cox model with cluster (option b) and adding time-varying coefficient to allow interaction with log(time). <old title not what's here 
 ```{r}
 
 # Round 2, trying cox with time varying treatment effect as data does not meet PH assumption
 # Cox model with time-varying coefficient for treatment 
-survival_for_curve$treat_num <- ifelse(survival_for_curve$treatment == "group", 1, 0)
+survival_for_curve <- survival_for_curve %>%
+mutate(treat_num = ifelse(survival_for_curve$treatment == "group", 1, 0) ) %>%
+  mutate(third = ifelse((Day <= 10), "early", ifelse((Day > 10 & Day <= 20), "mid", "late")))
 
-cox_tv <- coxph(Surv(Day, status) ~ treat_num + tt(treat_num) + cluster(Tank),
+
+cox_tv <- coxph(Surv(Day, status) ~ treatment + tt(treat_num),
                 data = survival_for_curve,
                 tt = function(x, t, ...) x * log(t))  
+
+# shitshow
+
+coxstrat_long <- survSplit(Surv(Day, status) ~ .,
+                     data = survival_for_curve,
+                     cut = 5,
+                     start = "tstart",
+                     end = "tstop",
+                     event = "status",
+                     id = "splitID")
+
+coxstrat_long <- coxstrat_long %>%
+  mutate(interval = cut(tstart,
+                        breaks = c(0, 5, Inf),
+                        labels = c("early", "rest"),
+                        right = FALSE)) %>%
+  # for rows with tstart == 0 the first cut created NA from above; recalc robustly:
+  mutate(interval = case_when(
+    tstart < 5 ~ "early",
+    tstart == 5 ~ "rest",
+    TRUE ~ interval
+  )) %>%
+  mutate(interval = factor(interval, levels = c("early","rest")))
+
+cox_interval <- coxph(Surv(tstart, tstop, status) ~ treatment * interval, data = coxstrat_long)
+summary(cox_interval)
+
+zph <- cox.zph(cox_interval)
+print(zph)
+plot(zph)
+
+
+
+
 # tt term allows for interaction with log(time) to address the fact that the PH is not the same over time
-# cluster (Tank) tells the model that observations within the same tank are correlated, not independent and adjusts the standard errors and test statistics accordingly (robust sandwich variance), which allows you to still estimate a treatment-level effect while accounting for tank clustering.
 
 summary(cox_tv)
 # both treatment number (1,0, group vs. individual) and tt()
 
-# p value for both treat_num (individual vs grouped) and tt(treat_num) are significant, which, with some consultation with chat gpt, means that there is a significant difference between treatments and that the hazard ratio between them varies significantly over time. I think
+summary(cox_strat)
 
-#Attempting to visualize, chat assisted, might be garbage
+```
+
+```{r}
+#Attempting to visualize the above cox model, chat assisted, might be garbage
 
 # Extract coefficients
 b <- coef(cox_tv)
