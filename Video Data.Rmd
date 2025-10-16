@@ -44,7 +44,10 @@ realtime_events <- realtime_events %>%
     real_timestamp_secs  = timestamp_seconds * 29.97,,
     real_timestamp_hms  = seconds_to_period(real_timestamp_secs),
     event_true_datetime = start_datetime + real_timestamp_hms
-  )
+  ) %>%
+  mutate(day_number = day_number - 1 ) %>%
+  mutate(day_number = ifelse(time_of_day == "am", day_number + 0.5, day_number + 1))
+
 
 ```
 
@@ -335,28 +338,174 @@ cox_log <- cox_tv  # current model with log(t)
 AIC(cox_linear, cox_log)
 ```
 
-Moult stage x cannibalism
+## Logistic Regressions ##
+
+Moult stage x cannibalism binary logistic regression
 ```{r}
 # Binary encode cause
 cann_by_moult <- treatments_morts_dets %>%
   filter(treatment == "group") %>% 
   filter(status == 1) %>%  
-  filter(Cause != "Moult Failure") %>% # only dead individuals
+  filter(Cause != "Moult Failure") %>% # includes all animals where cannibalism was a componant of death, including the + moult failures
   mutate(moult_bin = ifelse(Stage == "Post-moult", 1, ifelse(Stage == "Moulting", 1, 0)))
 
 
-# Fit logistic regression
-model <- glm(moult_bin ~ Day, data = cann_by_moult, family = binomial)
+# Binomial logistic regression for moult stage by day of experiemnt
+binom_calcif_day <- glm(moult_bin ~ Day, data = cann_by_moult, family = binomial)
+summary(binom_calcif_day)
 
-summary(model)
+# by time of day (day/night)
+binom_calcif_time <- glm(moult_bin ~ time, data = cann_by_moult, family = binomial)
+summary(binom_calcif_time)
 
-# Need to fix formatting on this to make it less ugly, add theme created for presentaiton
+# by both day and time of day (this has the lowest AIC of the three and both predictors are significant, a bit concerned about over fitting but I think it's ok?)
+binom_calcif_day_time <- glm(moult_bin ~ Day + time, data = cann_by_moult, family = binomial)
+summary(binom_calcif_day_time)
+
+# Need to fix formatting on these to make it less ugly, add theme created for presentaiton
+
+# Calcified vs. Uncalcified over course of experiment
 ggplot(cann_by_moult, aes(x = Day, y = moult_bin)) +
   geom_jitter(height = 0.05, width = 0) +
   geom_smooth(method = "glm", method.args = list(family = "binomial"),
               se = TRUE, color = "blue") +
   ylab("Probability Cannibalism Victim is Moulting/Post-Moult") +
   xlab("Days")
+
+
+# Calcified vs. Uncalcified by time of day
+ggplot(cann_by_moult, aes(x = time, y = moult_bin)) +
+  geom_jitter(height = 0.05, width = 0) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),
+              se = TRUE, color = "blue") +
+  ylab("Probability Cannibalism Victim is Moulting/Post-Moult") +
+  xlab("Days")
+
+# Calcified vs. uncalcified by time and day
+
+# Create a new dataset for prediction
+newdat <- expand.grid(
+  Day = seq(min(cann_by_moult$Day), max(cann_by_moult$Day), length.out = 100),
+  time = c("Day", "Night"))
+
+# Get predicted values and standard errors on the link (logit) scale
+pred <- predict(binom_calcif_day_time, newdata = newdat, type = "link", se.fit = TRUE)
+
+# Add fitted values and confidence intervals (on probability scale)
+newdat$fit <- plogis(pred$fit)
+newdat$lwr <- plogis(pred$fit - 1.96 * pred$se.fit)
+newdat$upr <- plogis(pred$fit + 1.96 * pred$se.fit)
+
+# Plot with ribbons for 95% CIs
+ggplot(newdat, aes(x = Day, y = fit, color = time, fill = time)) +
+  geom_line() +
+  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2, color = NA) +
+  labs(
+    y = "Predicted probability (non-calcified cannibalism)",
+    x = "Experimental day",
+    color = "Time of day",
+    fill = "Time of day"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")
+  )
+
+
+# plot without CI
+
+# Create prediction data
+newdat1 <- expand.grid(
+  Day = seq(min(cann_by_moult$Day), max(cann_by_moult$Day), length.out = 100),
+  time = c("Day", "Night")
+)
+
+# Get predicted probabilities
+newdat1$pred <- predict(binom_calcif_day_time, newdata = newdat, type = "response")
+
+#plot
+ggplot(newdat1, aes(x = Day, y = pred, color = time)) +
+  geom_line(size = 1.2) +
+  labs(y = "Probability that Cannibalized Animal Was Not Calcified",
+       color = "Time of day") +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")
+  )
+
+```
+
+Binary logistic regression for mortality between treatments.
+```{r}
+
+mort_treat <- treatments_morts_dets %>%
+  filter(status == 1) %>%  
+  mutate(treat_bin = ifelse(treatment == "individual", 0, 1))
+
+binom_mort_treat <- glm(treat_bin ~ Day, data = mort_treat, family = binomial)
+summary(binom_mort_treat)
+
+ggplot(mort_treat, aes(x = Day, y = treat_bin)) +
+  geom_jitter(height = 0.05, width = 0) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),
+              se = TRUE, color = "blue") +
+  ylab("Probability Of death between treatments") +
+  xlab("Days")
+
+
+```
+
+Binary logistic regression for co-reared mortality between light and dark.
+```{r}
+
+mort_by_light <- video_events %>%
+  filter(event_type == "Mortality") %>%
+  mutate(light_bin = ifelse(time_of_day == "am", 1, 0))
+
+binom_mort_light <- glm(light_bin ~ day_number, data = mort_by_light, family = binomial)
+summary(binom_mort_light)
+
+ggplot(binom_mort_light, aes(x = day_number, y = light_bin)) +
+  geom_jitter(height = 0.05, width = 0) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),
+              se = TRUE, color = "blue") +
+  ylab("Probability Of death between light and dark") +
+  xlab("Days")
+
+
+```
+
+Binary logistic regression for co-reared moults between light and dark.
+```{r}
+
+simple_moult <- video_events %>%
+  filter(event_type == "Moult")
+
+moult_by_light <- simple_moult %>%
+  mutate(light_bin = ifelse(time_of_day == "am", 1, 0))
+
+binom_moult_light <- glm(light_bin ~ day_number, data = moult_by_light, family = binomial)
+summary(binom_moult_light)
+
+ggplot(binom_moult_light, aes(x = day_number, y = light_bin)) +
+  geom_jitter(height = 0.05, width = 0) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),
+              se = TRUE, color = "blue") +
+  ylab("Probability Of moult between light and dark") +
+  xlab("Days")
+
 
 ```
 
@@ -374,6 +523,9 @@ mutate(Cause = ifelse(Cause == "Cannibalism + Moult Failure", "Cannibalism", Cau
 simplify_group <- treatments_morts_simplify %>%
   filter(treatment == "group")
 
+simple_moult <- video_events %>%
+  filter(event_type == "Moult")
+
   
 ctable_cause <- xtabs(~ treatment + Cause, data = treatments_morts_simplify) 
 ctable_stage <- xtabs(~ treatment + Stage, data = treatments_morts_simplify) 
@@ -381,11 +533,19 @@ ctable_time <- xtabs(~ treatment + time, data = treatments_morts_simplify)
 
 ctable_group_cause <- xtabs(~ third + Cause, data = simplify_group)
 ctable_tank_cause <- xtabs(~ Tank + Cause, data = simplify_group)
+ctable_tank_time <- xtabs(~ Tank + time, data = simplify_group)
+ctable_moult_tank_time <- xtabs(~ camera + time_of_day, data = simple_moult)
 
 # Difference between cannibalism cause and moult cause deaths in group, shapiro wilk test says not normal so used wilcoxen
-wilcox.test(ctable_tank_cause)
+wilcox.test(ctable_moult_tank_time)
 
-fisher_cause <- fisher.test(ctable_group_cause)
+Day <- c(2,3,4,5)
+Night <- c(7,7,4,5)
+
+diffs <- Day - Night
+shapiro.test(diffs)
+
+fisher_cause <- fisher.test(ctable_tank_time)
 fisher_cause
 
 
