@@ -12,6 +12,10 @@ library(tidyverse)
 library(coxme)
 library(survival)
 library(stringr)
+library(circular)
+library(CoinCalc)
+library(Directional)
+library(bpnreg)
 
 video_events <- read_csv("video Notable Events.csv")
 video_morts <- read_csv("Mort Counts for Vid Analysis.csv")
@@ -497,15 +501,65 @@ moult_by_light <- simple_moult %>%
   mutate(light_bin = ifelse(time_of_day == "am", 1, 0))
 
 binom_moult_light <- glm(light_bin ~ day_number, data = moult_by_light, family = binomial)
-summary(binom_moult_light)
+summary(binom_moult_light) 
 
 ggplot(binom_moult_light, aes(x = day_number, y = light_bin)) +
   geom_jitter(height = 0.05, width = 0) +
   geom_smooth(method = "glm", method.args = list(family = "binomial"),
               se = TRUE, color = "blue") +
-  ylab("Probability Of moult between light and dark") +
+  ylab("Probability Of moult between light and dark") + 
   xlab("Days")
 
+
+```
+
+## Circular Stats and Temporal Correlation ##
+
+```{r}
+circ_events <- realtime_events %>%
+  mutate (hours = as.numeric(format(event_true_datetime, "%H")) +
+                     as.numeric(format(event_true_datetime, "%M"))/60) %>%
+  mutate (theta = hours / 24 * 2*pi)
+
+#------------------------------------------------------------------------------
+
+moult_circ <- circ_events %>%
+  filter(event_type == "Moult") 
+
+rayleigh.test(circular(moult_circ$theta))
+
+moult_circ_obj <- circular(moult_circ$theta, units = "radians", template = "clock24")
+mean_angle <- mean(moult_circ_obj) 
+rose.diag(moult_circ_obj,
+          bins = 24,                # one bin per hour
+          col = "skyblue",
+          arrows.circular(mean_angle, col = "red", lwd = 2),
+          prop = 1.5,               # scale of radius
+          shrink = 1,               # shrink inner circle
+          main = "Moulting Events by Time of Day")
+
+
+#------------------------------------------------------------------------------
+
+mort_circ <- circ_events %>%
+  filter(event_type == "Mortality") 
+
+rayleigh.test(circular(mort_circ$theta))
+
+mort_circ_obj <- circular(mort_circ$theta, units = "radians", template = "clock24")
+mean_angle <- mean(mort_circ_obj)
+rose.diag(mort_circ_obj,
+          bins = 24,                # one bin per hour
+          col = "skyblue",
+          arrows.circular(mean_angle, col = "red", lwd = 2),
+          prop = 1.5,               # scale of radius
+          shrink = 1,               # shrink inner circle
+          main = "Mortality Events by Time of Day")
+
+```
+
+Trying out other synchronicity things 
+```{r}
 
 ```
 
