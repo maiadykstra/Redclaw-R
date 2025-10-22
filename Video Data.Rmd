@@ -16,6 +16,7 @@ library(circular)
 library(CoinCalc)
 library(Directional)
 library(bpnreg)
+library(cvequality)
 
 video_events <- read_csv("video Notable Events.csv")
 video_morts <- read_csv("Mort Counts for Vid Analysis.csv")
@@ -24,6 +25,7 @@ video_times <- read_csv("Video Start and Stop Times.csv")
 isolated_counts <-read.csv("Isolated_Counts.csv")
 halfday_morts <-read.csv("Morts by half day.csv")
 treatments_morts_dets <-read.csv("survival_for_curve_plusCauseAndMoult.csv")
+carapace_lengths <- read_csv("Carapace lengths.csv")
 
 #Getting rid of extra spaces that result in fake categories
 treatments_morts_dets <- treatments_morts_dets %>%
@@ -67,6 +69,35 @@ treatments_morts_dets <- treatments_morts_dets %>%
 
 ```
 
+Organizing carapace length data
+```{r}
+carapace_lengths <- carapace_lengths %>%
+mutate(Length = `Post-orbital Carapace Length (mm)`)
+
+mslr_df <- carapace_lengths %>%
+  mutate(group = paste(Treatment, Day)) %>%
+  filter(Treatment == "Iso") %>%
+  filter(Day != 15)
+
+mslr_test(nr = 1000, mslr_df$Length, mslr_df$group)
+
+carapace_summary <- carapace_lengths %>%
+  group_by(Treatment, Day) %>%
+  summarise(
+    mean_length = mean(Length, na.rm = TRUE),
+    sd_length = sd(Length, na.rm = TRUE),
+    n = n(),
+    se_length = sd_length / sqrt(n)
+  )
+
+carapace_summary <- carapace_summary %>%
+  mutate(
+    CV = sd_length/mean_length,
+    CV_se = CV / sqrt(2 * n)
+  )
+
+
+```
 
 Summary table event counts for ease of graphing 
 ```{r}
@@ -526,7 +557,9 @@ circ_events <- realtime_events %>%
 moult_circ <- circ_events %>%
   filter(event_type == "Moult") 
 
-rayleigh.test(circular(moult_circ$theta))
+watson.wheeler.test((circular(moult_circ$theta)), moult_circ$camera.x)
+
+rao.spacing.test(circular(moult_circ$theta))
 
 moult_circ_obj <- circular(moult_circ$theta, units = "radians", template = "clock24")
 mean_angle <- mean(moult_circ_obj) 
@@ -544,7 +577,7 @@ rose.diag(moult_circ_obj,
 mort_circ <- circ_events %>%
   filter(event_type == "Mortality") 
 
-rayleigh.test(circular(mort_circ$theta))
+rao.spacing.test(circular(mort_circ$theta[mort_circ$camera.x == "4"]))
 
 mort_circ_obj <- circular(mort_circ$theta, units = "radians", template = "clock24")
 mean_angle <- mean(mort_circ_obj)
@@ -560,7 +593,13 @@ rose.diag(mort_circ_obj,
 
 Trying out other synchronicity things 
 ```{r}
+daily_moults <- realtime_events %>%
+  filter(event_type == "Moult") %>%
+  mutate(hour = floor_date(event_true_datetime, "day")) %>%
+  count(hour, camera.x) %>%
+  pivot_wider(names_from = camera.x, values_from = n, values_fill = 0)
 
+ccf(daily_moults$`1`, daily_moults$`2`, lag.max = 24, main = "Tank 1 vs 2 (hourly CCF)")
 ```
 
 ## Chi square/Fisher exact for comparisons without continuous time componant ##
@@ -909,19 +948,20 @@ moult_tally <- video_events %>%
   group_by(day_number, camera, time_of_day) %>%
   summarise(count = n(), .groups = "drop")
 
-ggplot(moult_tally, aes(x = day_number)) +
-  geom_freqpoly(binwidth = 1, size = 1.2, color = "steelblue") +
+ggplot(moult_tally, aes(x = day_number, y = count)) +
+  geom_line(size = 1.2, color = "steelblue") +
   labs(x = "Day", y = "Number of Moults") +
-    theme_minimal(base_size = 14) +
+  facet_wrap(~camera, ncol = 2) +  # one panel per camera
+  theme_minimal(base_size = 14) +
   theme(
-    legend.position = "none",
     plot.title = element_text(hjust = 0.5),
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     axis.title.x = element_text(margin = margin(t = 15)),
     axis.title.y = element_text(margin = margin(r = 15)),
-    axis.line = element_line(color = "black")  # keeps axis lines
+    axis.line = element_line(color = "black")
   )
+
 ```
 
 Event count per day per tank bar graph using summary table
@@ -948,6 +988,27 @@ filter(event_type != "Test") %>%
 ggplot() +
   geom_point(aes(x = event_true_datetime, y = factor(camera.x), color = event_type), size = 3) +
   labs(x = "Time", y = "Tank", color = "Event Type") +
+  theme_minimal()
+
+rtv <- realtime_events %>%
+  filter(event_type != "Test") %>%
+  arrange(event_true_datetime) %>%
+  #group_by(camera.x) %>%
+  # create a column with the most recent feed before each event
+  mutate(last_feed_time = lag(ifelse(event_type == "Moult", event_true_datetime, NA))) %>%
+  fill(last_feed_time, .direction = "down") %>%  # fill forward the last feed
+  mutate(since_feed = as.numeric(difftime(event_true_datetime, last_feed_time, units = "hours"))) %>%
+  filter (event_type == "Mortality") %>%
+  ungroup()
+
+
+ggplot(rtv, aes(x = since_feed)) +
+  geom_histogram(binwidth = 1, fill = "steelblue", color = "black")
+  labs(
+    x = "Time since previous moult (hours)",
+    y = "Count of mortalities",
+    title = "Distribution of Time Between Moults"
+  ) +
   theme_minimal()
 ```
 
