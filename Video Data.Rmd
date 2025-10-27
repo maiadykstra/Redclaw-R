@@ -18,6 +18,7 @@ library(Directional)
 library(bpnreg)
 library(cvequality)
 
+
 video_events <- read_csv("video Notable Events.csv")
 video_morts <- read_csv("Mort Counts for Vid Analysis.csv")
 no_event_vids <- read_csv("No Event Videos.csv")
@@ -179,15 +180,18 @@ surv_obj <- Surv(time = survival_for_curve$Day, event = survival_for_curve$statu
 
 survdiff(surv_obj ~ treatment, data = survival_for_curve) #Performs log-rank test to look for differences between survival curves. this groups all the tanks together so it's just grouped vs individual as big groups, cox needed to seperate i think
 
+#Kaplan Myer fit with each tank seperated out for visualization
+survival_for_curve$tank_or_indiv <- ifelse(is.na(survival_for_curve$Tank), "individual", survival_for_curve$Tank)
+
+# All tanks vs eachother and individual
+survdiff(surv_obj ~ tank_or_indiv, data = survival_for_curve)
+
 #surv curves for group only by tank to make sure they aren't significantly different
 surv_objGROUP <- Surv(time = survivalCurve_groupOnly$Day, event = survivalCurve_groupOnly$status)
 survdiff(surv_objGROUP ~ Tank, data = survivalCurve_groupOnly)
 
 
-#Kaplan Myer fit with each tank seperated out for visualization
-survival_for_curve$tank_or_indiv <- ifelse(is.na(survival_for_curve$Tank), "individual", survival_for_curve$Tank)
-
-# tanks graphed separately
+# each treatment seperate + individual
 km_fit <- survfit(Surv(Day, status) ~ tank_or_indiv, data = survival_for_curve)
 
 #base r plot of kaplan meier with all tanks separated to show they have similar pattern
@@ -200,12 +204,13 @@ plot(km_fit,
 # Open a new plotting window (or PDF/PNG) to generate separate figure for legend so it is not ugly
 dev.new()  # on RStudio or base R; for saving use png()/pdf()
 
-# Empty plot
+par(mar = c(0,0,0,0))
 plot.new()
-
-#generate legend for prev graph
-legend("center", legend = c("Tank 1", "Tank 2", "Tank 3", "Tank 4", "Individuals"),
-       col = c("turquoise3", "steelblue3", "navyblue", "slategray4", "palegreen3" ), lwd = 2)  
+legend("center",
+       legend = c("Co-reared 1", "Co-reared 2", "Co-reared 3", "Co-reared 4", "Isolated"),
+       col = c("turquoise3", "steelblue3", "navyblue", "slategray4", "palegreen3"),
+       lwd = 2,
+       bty = "n")
 
 
 #tanks graphed together
@@ -256,10 +261,10 @@ dev.new()  # on RStudio or base R; for saving use png()/pdf()
 
 # Empty plot
 plot.new()
-
 #generate legend for prev graph
-legend("center", legend = c( "Co-reared", "Isolated"),
-       col = c("steelblue3", "palegreen3" ), lwd = 2)
+legend("center", legend = c( "Co-reared Survival Function", "Isolated Survival Function", "Co-reared Moults"),
+       col = c("steelblue3", "palegreen3", "grey" ), lwd = 2,
+       bty = "n")
 ```
 
 
@@ -397,19 +402,21 @@ summary(binom_calcif_time)
 binom_calcif_day_time <- glm(moult_bin ~ Day + time, data = cann_by_moult, family = binomial)
 summary(binom_calcif_day_time)
 
+exp(confint(binom_calcif_day_time))
+
 # Need to fix formatting on these to make it less ugly, add theme created for presentaiton
 
-# Calcified vs. Uncalcified over course of experiment
-ggplot(cann_by_moult, aes(x = Day, y = moult_bin)) +
+
+# Calcified vs. Uncalcified by time of day
+ggplot(cann_by_moult, aes(x = time, y = moult_bin)) +
   geom_jitter(height = 0.05, width = 0) +
   geom_smooth(method = "glm", method.args = list(family = "binomial"),
               se = TRUE, color = "blue") +
   ylab("Probability Cannibalism Victim is Moulting/Post-Moult") +
   xlab("Days")
 
-
-# Calcified vs. Uncalcified by time of day
-ggplot(cann_by_moult, aes(x = time, y = moult_bin)) +
+# Calcified vs. Uncalcified over course of experiment
+ggplot(cann_by_moult, aes(x = Day, y = moult_bin)) +
   geom_jitter(height = 0.05, width = 0) +
   geom_smooth(method = "glm", method.args = list(family = "binomial"),
               se = TRUE, color = "blue") +
@@ -432,15 +439,17 @@ newdat$lwr <- plogis(pred$fit - 1.96 * pred$se.fit)
 newdat$upr <- plogis(pred$fit + 1.96 * pred$se.fit)
 
 # Plot with ribbons for 95% CIs
-ggplot(newdat, aes(x = Day, y = fit, color = time, fill = time)) +
-  geom_line() +
-  geom_ribbon(aes(ymin = lwr, ymax = upr), alpha = 0.2, color = NA) +
+ggplot() +
+  geom_line(data = newdat, aes(x = Day, y = fit, color = time, fill = time)) +
+  geom_ribbon(data = newdat, aes(x = Day, y = fit, color = time, fill = time, ymin = lwr, ymax = upr), alpha = 0.2, color = NA) +
   labs(
-    y = "Predicted probability (non-calcified cannibalism)",
-    x = "Experimental day",
-    color = "Time of day",
-    fill = "Time of day"
+    y = "Probability Cannibalized Animal is Uncalcified",
+    x = "Day",
+    color = "Light Period",
+    fill = "Light Period"
   ) +
+  geom_point(data = cann_by_moult, aes(x = Day, y = moult_bin, color = time),
+             position = position_jitter(height = 0.05, width = 0.25))+
   theme_minimal(base_size = 14) +
   theme(
     legend.position = "right",
@@ -465,8 +474,8 @@ newdat1 <- expand.grid(
 newdat1$pred <- predict(binom_calcif_day_time, newdata = newdat, type = "response")
 
 #plot
-ggplot(newdat1, aes(x = Day, y = pred, color = time)) +
-  geom_line(size = 1.2) +
+ggplot() +
+  geom_line(data = newdat1, aes(x = Day, y = pred, color = time)) +
   labs(y = "Probability that Cannibalized Animal Was Not Calcified",
        color = "Time of day") +
   theme_minimal(base_size = 14) +
@@ -519,6 +528,8 @@ ggplot(binom_mort_light, aes(x = day_number, y = light_bin)) +
   ylab("Probability Of death between light and dark") +
   xlab("Days")
 
+exp(confint(binom_mort_light))
+
 
 ```
 
@@ -538,8 +549,10 @@ ggplot(binom_moult_light, aes(x = day_number, y = light_bin)) +
   geom_jitter(height = 0.05, width = 0) +
   geom_smooth(method = "glm", method.args = list(family = "binomial"),
               se = TRUE, color = "blue") +
-  ylab("Probability Of moult between light and dark") + 
+  ylab("Probability of Moult Occuring During Light vs. Dark Period") + 
   xlab("Days")
+
+exp(confint(binom_moult_light))
 
 
 ```
@@ -621,6 +634,10 @@ simplify_group <- treatments_morts_simplify %>%
 simple_moult <- video_events %>%
   filter(event_type == "Moult")
 
+can_for_fisher <- treatments_morts_simplify %>%
+  filter(Cause != "Moult failure") %>%
+  filter(treatment == "group")
+
   
 ctable_cause <- xtabs(~ treatment + Cause, data = treatments_morts_simplify) 
 ctable_stage <- xtabs(~ treatment + Stage, data = treatments_morts_simplify) 
@@ -630,9 +647,16 @@ ctable_group_cause <- xtabs(~ third + Cause, data = simplify_group)
 ctable_tank_cause <- xtabs(~ Tank + Cause, data = simplify_group)
 ctable_tank_time <- xtabs(~ Tank + time, data = simplify_group)
 ctable_moult_tank_time <- xtabs(~ camera + time_of_day, data = simple_moult)
+ctable_cann_stage <- xtabs(~ Tank + Stage, data = can_for_fisher)
 
 # Difference between cannibalism cause and moult cause deaths in group, shapiro wilk test says not normal so used wilcoxen
-wilcox.test(ctable_moult_tank_time)
+
+cause_tank <- as.data.frame.matrix(ctable_tank_cause)
+moult_time <- as.data.frame.matrix(ctable_moult_tank_time) 
+mort_time <- as.data.frame.matrix(ctable_tank_time)
+
+wilx <- wilcox.test(mort_time$Day, mort_time$Night, paired = TRUE)
+wilx
 
 Day <- c(2,3,4,5)
 Night <- c(7,7,4,5)
@@ -640,11 +664,41 @@ Night <- c(7,7,4,5)
 diffs <- Day - Night
 shapiro.test(diffs)
 
-fisher_cause <- fisher.test(ctable_tank_time)
-fisher_cause
+fisher <- fisher.test(ctable_cann_stage)
+fisher
 
+friedman.test(as.matrix(ctable_cann_stage))
 
-fisher_by_category(ctable_cause)
+df = as.data.frame(ctable_cann_stage)
+pairwise.wilcox.test(
+  x = df$Freq,
+  g = df$Stage,
+  paired = TRUE,
+  p.adjust.method = "BH"   # or "bonferroni", "holm", etc.
+)
+
+df_calc <- df %>%
+  mutate(calc = ifelse(Stage %in% c("Inter-moult", "Pre-moult"), "Calcified", "Uncalcified")) %>%
+group_by(Tank, calc) %>%
+  summarise(Total = sum(Freq), .groups = "drop")
+
+wilcox.test(
+  Total ~ calc,
+  data = df_calc,
+  paired = TRUE)
+
+df_calc_sw <- df_calc %>%
+  pivot_wider(names_from = calc, values_from = Total)
+
+shapiro.test(df_calc_sw$Calcified - df_calc_sw$Uncalcified)
+
+t.test(
+  Total ~ calc,
+  data = df_calc,
+  paired = TRUE
+)
+
+#fisher_by_category(ctable_stage)
 
 
 #code to look at chi square residuals as another check to see what's influencing significant differences (even if doesn't meet assumptions for chi), internet says absolute >2 is usually impactful
@@ -947,13 +1001,14 @@ Bar chart showing moults over time
 # Moults over the full experiment
 moult_tally <- video_events %>%
   filter(event_type == "Moult") %>%   
-  group_by(day_number, camera, time_of_day) %>%
+  group_by(day_number) %>%
   summarise(count = n(), .groups = "drop")
 
 ggplot(moult_tally, aes(x = day_number, y = count)) +
-  geom_line(size = 1.2, color = "steelblue") +
+  geom_line(size = 1.2, color = "midnightblue") +
   labs(x = "Day", y = "Number of Moults") +
-  facet_wrap(~camera, ncol = 2) +  # one panel per camera
+  scale_y_continuous(
+    breaks = seq(0, 10, by = 2)) +
   theme_minimal(base_size = 14) +
   theme(
     plot.title = element_text(hjust = 0.5),
@@ -1001,7 +1056,7 @@ rtv <- realtime_events %>%
   fill(last_feed_time, .direction = "down") %>%  # fill forward the last feed
   mutate(since_feed = as.numeric(difftime(event_true_datetime, last_feed_time, units = "hours"))) %>%
   filter (event_type == "Moult") %>% #edit line for event of interest or comment out
-  filter (time_of_day == "am") %>% #edit line for time period of interest or comment out
+  # filter (time_of_day == "am") %>% #edit line for time period of interest or comment out
   ungroup()
 
 ks.test(rtv$since_feed, "punif", min = 0, max = 12)
@@ -1009,7 +1064,7 @@ ks.test(rtv$since_feed, "punif", min = 0, max = 12)
 ggplot(rtv, aes(x = since_feed)) +
   geom_histogram(binwidth = 1, fill = "steelblue", color = "black")+
   labs(
-    x = "Time Since Feeding (Hours, Light Period)",
+    x = "Time Since Feeding (Hours)",
     y = "Number of Moults",
     title = "Distribution of Time Between Moults"
   ) +
@@ -1196,7 +1251,7 @@ treatments_morts_simplify %>%
   )) +
   labs(
     x = "Cause of Death",
-    y = "Percentage of Mortalities"
+    y = "Median Percentage of Mortalities"
   ) +
   theme_minimal(base_size = 14) +
   theme(
@@ -1207,6 +1262,8 @@ treatments_morts_simplify %>%
     axis.title.y = element_text(margin = margin(r = 15)),
     axis.line = element_line(color = "black")
   )
+
+
   
 ```
 
@@ -1367,8 +1424,87 @@ treatments_morts_simplify %>%
     axis.title.x = element_text(margin = margin(t = 15)),
     axis.title.y = element_text(margin = margin(r = 15)),
     axis.line = element_line(color = "black")
-  )
+  ) 
+
+
 ```
+
+boxplot of above
+```{r}
+treatments_morts_simplify %>%
+  filter(treatment == "group") %>%
+  filter(Cause != "Moult Failure") %>%
+  mutate(Stage = factor(Stage, levels = c("Pre-moult", "Moulting", "Post-moult", "Inter-moult"))) %>%
+  group_by(Stage, Tank) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(Tank) %>%
+  mutate(percent = count / sum(count) * 100)%>%
+  
+ggplot(aes(x = Stage, y = percent, fill = Stage)) +
+  geom_boxplot(width = 0.6, color = "black", outlier.shape = 21, outlier.fill = "white") +
+  geom_jitter(width = 0.15, alpha = 0.6, size = 2, color = "black") +
+  scale_fill_manual(values = c(
+    "Pre-moult" = "steelblue3",
+    "Moulting" = "royalblue4",
+    "Post-moult" = "cadetblue3", 
+    "Inter-moult" = "slategray3"
+  )) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  labs(
+    x = "Moult Stage",
+    y = "Percentage of Cannibalism Victims"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")
+  )
+
+```
+
+boxplot by calcification
+```{r}
+treatments_morts_simplify %>%
+  filter(treatment == "group") %>%
+  filter(Cause != "Moult Failure") %>%
+  mutate(Stage = factor(Stage, levels = c("Pre-moult", "Moulting", "Post-moult", "Inter-moult"))) %>%
+  mutate(calc = ifelse(Stage == "Pre-moult", "Calcified", ifelse(Stage == "Inter-moult", "Calcified", "Uncalcified"))) %>%
+  group_by(calc, Tank) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(Tank) %>%
+  mutate(percent = count / sum(count) * 100)%>%
+  
+ggplot(aes(x = calc, y = percent, fill = calc)) +
+  geom_boxplot(width = 0.6, color = "black", outlier.shape = NA) +
+  geom_jitter(aes(fill = NULL, color = NULL), width = 0.15, alpha = 0.6, size = 2, color = "black")+
+  scale_fill_manual(values = c(
+    "Calcified" = "royalblue4",
+    "Uncalcified" = "steelblue3"
+  )) +
+  scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
+  expand_limits(y = 20) +
+  labs(
+    x = "Moult Stage",
+    y = "Percentage of Cannibalism Victims"
+  ) +
+  theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")
+  )
+
+```
+
 
 Cannibalism by time, stacked by moult stage
 ```{r}
