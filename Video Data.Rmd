@@ -77,8 +77,14 @@ mutate(Length = `Post-orbital Carapace Length (mm)`)
 
 mslr_df <- carapace_lengths %>%
   mutate(group = paste(Treatment, Day)) %>%
-  filter(Treatment == "Iso") %>%
-  filter(Day != 15) # Change treatment and day filter to utilize below code as pairwise test
+ # filter(Treatment == "Iso") %>%
+  filter(Day == 30) # Change treatment and day filter to utilize below code for different combos
+
+t.test(Length ~ Treatment, data = mslr_df)
+
+shapiro.test(mslr_df$Length)
+
+qqnorm(mslr_df$Length)
 
 mslr_test(nr = 1000, mslr_df$Length, mslr_df$group)
 
@@ -655,16 +661,33 @@ cause_tank <- as.data.frame.matrix(ctable_tank_cause)
 moult_time <- as.data.frame.matrix(ctable_moult_tank_time) 
 mort_time <- as.data.frame.matrix(ctable_tank_time)
 
-wilx <- wilcox.test(mort_time$Day, mort_time$Night, paired = TRUE)
+wilx <- wilcox.test(moult_time$am, moult_time$pm)
 wilx
 
-Day <- c(2,3,4,5)
-Night <- c(7,7,4,5)
+l1 = c(2/9, 3/10, 4/8, 5/10)*100
+l2= c(7/9, 7/10, 4/8, 5/10)*100
+diffs = l1-l2
+diffs
 
-diffs <- Day - Night
-shapiro.test(diffs)
+j =l1
+mean_l = mean(j)
+sd_l <- sd(j)
+n_l <- length(j)
+se_l <- sd_l / sqrt(n_l)
+sd_l
+mean_l
+se_l
 
-fisher <- fisher.test(ctable_cann_stage)
+t.test(l1, l2, paired = TRUE, alternative = "two.sided")
+
+moult_time3 <- data.frame( Diff = diffs)
+
+ggplot(moult_time3, aes(x = " ", y = l2)) +
+  geom_boxplot()
+
+ctable_tank_cause_transpose <- t(ctable_tank_cause)
+
+fisher <- fisher.test(ctable_tank_cause, alternative = "less")
 fisher
 
 friedman.test(as.matrix(ctable_cann_stage))
@@ -1056,7 +1079,7 @@ rtv <- realtime_events %>%
   fill(last_feed_time, .direction = "down") %>%  # fill forward the last feed
   mutate(since_feed = as.numeric(difftime(event_true_datetime, last_feed_time, units = "hours"))) %>%
   filter (event_type == "Moult") %>% #edit line for event of interest or comment out
-  # filter (time_of_day == "am") %>% #edit line for time period of interest or comment out
+   #filter (time_of_day == "am") %>% #edit line for time period of interest or comment out
   ungroup()
 
 ks.test(rtv$since_feed, "punif", min = 0, max = 12)
@@ -1207,7 +1230,7 @@ treatments_morts_dets %>%
 Bar for condensed cause of mortality co-reared (with error bars)
 ```{r}
 
-treatments_morts_simplify %>%
+tms1 <- treatments_morts_simplify %>%
    filter(treatment == "group") %>%
   group_by(Cause, Tank) %>%
   summarise(count = n(), .groups = "drop") %>%
@@ -1219,10 +1242,10 @@ treatments_morts_simplify %>%
     sd_percent = sd(percent),
     se_percent = sd_percent / sqrt(n()),
     .groups = "drop"
-  ) %>%
+  ) 
   
    # 5. Plot
-  ggplot(aes(x = Cause, y = mean_percent, fill = Cause)) +
+  ggplot(data = tms1, aes(x = Cause, y = mean_percent, fill = Cause)) +
   geom_col(color = "black", width = 0.7) +
   
   # 6. Error bars, bounded at zero
