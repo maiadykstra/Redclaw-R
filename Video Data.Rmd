@@ -8,10 +8,10 @@ output: html_document
 Prep libraries and import datasheets
 ```{r}
 
-library(tidyverse)
-library(coxme)
-library(survival)
-library(stringr)
+library(tidyverse) #used
+library(coxme) # used
+library(survival) #used
+library(stringr) 
 library(circular)
 library(CoinCalc)
 library(Directional)
@@ -1073,23 +1073,26 @@ ggplot() +
 rtv <- realtime_events %>%
   filter(event_type != "Test") %>%
   arrange(event_true_datetime) %>%
+  mutate(time_only = format(event_true_datetime, format = "%H:%M:%S")) %>%
+  mutate(num_time_only = as.numeric(hms(time_only)) / 3600) %>% # convert time to numeric hours
   #group_by(camera.x) %>%
   # create a column with the most recent feed (or other event, edit as needed) before each event
-  mutate(last_feed_time = lag(ifelse(event_type == "Feed", event_true_datetime, NA))) %>%
-  fill(last_feed_time, .direction = "down") %>%  # fill forward the last feed
-  mutate(since_feed = as.numeric(difftime(event_true_datetime, last_feed_time, units = "hours"))) %>%
-  filter (event_type == "Moult") %>% #edit line for event of interest or comment out
+  #mutate(last_feed_time = lag(ifelse(event_type == "Feed", event_true_datetime, NA))) %>%
+  #fill(last_feed_time, .direction = "down") %>%  # fill forward the last feed
+ # mutate(since_feed = as.numeric(difftime(event_true_datetime, last_feed_time, units = "hours"))) %>%
+  filter (event_type == "Mortality") %>% #edit line for event of interest or comment out
    #filter (time_of_day == "am") %>% #edit line for time period of interest or comment out
   ungroup()
 
 ks.test(rtv$since_feed, "punif", min = 0, max = 12)
+ks.test (rtv$num_time_only, "punif", min = 0, max = 24)
 
-ggplot(rtv, aes(x = since_feed)) +
+ggplot(rtv, aes(x = num_time_only)) +
   geom_histogram(binwidth = 1, fill = "steelblue", color = "black")+
   labs(
-    x = "Time Since Feeding (Hours)",
+    x = "Clock Time",
     y = "Number of Moults",
-    title = "Distribution of Time Between Moults"
+    #title = "Distribution of Time Between Moults"
   ) +
    theme_minimal(base_size = 14) +
   theme(
