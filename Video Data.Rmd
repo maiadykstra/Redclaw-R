@@ -1073,28 +1073,31 @@ ggplot() +
 rtv <- realtime_events %>%
   filter(event_type != "Test") %>%
   arrange(event_true_datetime) %>%
-  mutate(time_only = format(event_true_datetime, format = "%H:%M:%S")) %>%
-  mutate(num_time_only = as.numeric(hms(time_only)) / 3600) %>% # convert time to numeric hours
-  #group_by(camera.x) %>%
+  #mutate(time_only = format(event_true_datetime, format = "%H:%M:%S")) %>%
+  #mutate(num_time_only = as.numeric(hms(time_only)) / 3600) %>% # convert time to numeric hours
+  group_by(camera.x) %>%
   # create a column with the most recent feed (or other event, edit as needed) before each event
-  #mutate(last_feed_time = lag(ifelse(event_type == "Feed", event_true_datetime, NA))) %>%
-  #fill(last_feed_time, .direction = "down") %>%  # fill forward the last feed
- # mutate(since_feed = as.numeric(difftime(event_true_datetime, last_feed_time, units = "hours"))) %>%
-  filter (event_type == "Mortality") %>% #edit line for event of interest or comment out
-   #filter (time_of_day == "am") %>% #edit line for time period of interest or comment out
+  mutate(last_feed_time = lag(ifelse(event_type == "Feed", event_true_datetime, NA))) %>%
+  fill(last_feed_time, .direction = "down") %>%  # fill forward the last feed
+ mutate(since_feed = as.numeric(difftime(event_true_datetime, last_feed_time, units = "hours"))) %>%
+  filter (event_type == "Moult") %>% #edit line for event of interest or comment out
+   filter (time_of_day == "am") %>% #edit line for time period of interest or comment out
   ungroup()
 
 ks.test(rtv$since_feed, "punif", min = 0, max = 12)
 ks.test (rtv$num_time_only, "punif", min = 0, max = 24)
 
-ggplot(rtv, aes(x = num_time_only)) +
-  geom_histogram(binwidth = 1, fill = "steelblue", color = "black")+
+
+ggplot(rtv, aes(x = since_feed)) +
+  geom_histogram(binwidth = 1, boundary = 0, fill = "steelblue", color = "black") +
   labs(
-    x = "Clock Time",
-    y = "Number of Moults",
-    #title = "Distribution of Time Between Moults"
+    x = "Postprandial Time (Photophase, Hours)",
+    y = "Number of Moults"
   ) +
-   theme_minimal(base_size = 14) +
+  scale_x_continuous(limits = c(0, 12),
+    breaks = seq(0, ceiling(max(rtv$since_feed)), by = 1),
+  ) +
+  theme_minimal(base_size = 14) +
   theme(
     legend.position = "none",
     plot.title = element_text(hjust = 0.5),
@@ -1102,7 +1105,7 @@ ggplot(rtv, aes(x = num_time_only)) +
     panel.grid.minor = element_blank(),
     axis.title.x = element_text(margin = margin(t = 15)),
     axis.title.y = element_text(margin = margin(r = 15)),
-    axis.line = element_line(color = "black")  # keeps axis lines
+    axis.line = element_line(color = "black")
   )
 ```
 
