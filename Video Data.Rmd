@@ -8,6 +8,9 @@ output: html_document
 Prep libraries and import datasheets
 ```{r}
 
+obs <- c(14, 23)
+chisq.test(obs)
+
 library(tidyverse) #used
 library(coxme) # used
 library(survival) #used
@@ -449,8 +452,8 @@ ggplot() +
   geom_line(data = newdat, aes(x = Day, y = fit, color = time, fill = time)) +
   geom_ribbon(data = newdat, aes(x = Day, y = fit, color = time, fill = time, ymin = lwr, ymax = upr), alpha = 0.2, color = NA) +
   labs(
-    y = "Probability Cannibalized Animal is Uncalcified",
-    x = "Day",
+    y = "Probability Cannibalized Crayfish is Uncalcified",
+    x = "Time (Days)",
     color = "Light Period",
     fill = "Light Period"
   ) +
@@ -517,7 +520,7 @@ ggplot(mort_treat, aes(x = Day, y = treat_bin)) +
 
 ```
 
-Binary logistic regression for co-reared mortality between light and dark.
+Binary logistic regression for co-reared mortality between light and dark. and mort cause
 ```{r}
 
 mort_by_light <- video_events %>%
@@ -535,6 +538,22 @@ ggplot(binom_mort_light, aes(x = day_number, y = light_bin)) +
   xlab("Days")
 
 exp(confint(binom_mort_light))
+
+#--------------------------------------------------------------------------------------------------
+
+mort_by_cause <- treatments_morts_simplify %>%
+  filter(treatment == "group") %>%
+  mutate(cause_bin = ifelse(Cause == "Cannibalism", 1, 0))
+
+binom_mort_cause <- glm(cause_bin ~ Day, data = mort_by_cause, family = binomial)
+summary(binom_mort_cause)
+
+ggplot(binom_mort_cause, aes(x = Day, y = cause_bin)) +
+  geom_jitter(height = 0.05, width = 0) +
+  geom_smooth(method = "glm", method.args = list(family = "binomial"),
+              se = TRUE, color = "blue") +
+  ylab("Probability Of Cannibalism") +
+  xlab("Days")
 
 
 ```
@@ -554,9 +573,19 @@ summary(binom_moult_light)
 ggplot(binom_moult_light, aes(x = day_number, y = light_bin)) +
   geom_jitter(height = 0.05, width = 0) +
   geom_smooth(method = "glm", method.args = list(family = "binomial"),
-              se = TRUE, color = "blue") +
-  ylab("Probability of Moult Occuring During Light vs. Dark Period") + 
-  xlab("Days")
+              se = TRUE, color = "black") +
+  ylab("Probability of Moult Occurring During Photophase") + 
+  xlab("Time (Days)") +
+   theme_minimal(base_size = 14) +
+  theme(
+    legend.position = "none",
+    plot.title = element_text(hjust = 0.5),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.title.x = element_text(margin = margin(t = 15)),
+    axis.title.y = element_text(margin = margin(r = 15)),
+    axis.line = element_line(color = "black")
+  )
 
 exp(confint(binom_moult_light))
 
@@ -664,10 +693,13 @@ mort_time <- as.data.frame.matrix(ctable_tank_time)
 wilx <- wilcox.test(moult_time$am, moult_time$pm)
 wilx
 
-l1 = c(2/9, 3/10, 4/8, 5/10)*100
-l2= c(7/9, 7/10, 4/8, 5/10)*100
+l1 = c(4, 4, 3, 4)
+l2= c(5, 6, 5, 6)
 diffs = l1-l2
 diffs
+
+var(l1)
+var(l2)
 
 j =l1
 mean_l = mean(j)
@@ -682,7 +714,7 @@ t.test(l1, l2, paired = TRUE, alternative = "two.sided")
 
 moult_time3 <- data.frame( Diff = diffs)
 
-ggplot(moult_time3, aes(x = " ", y = l2)) +
+ggplot(moult_time3, aes(x = " ", y = Diff)) +
   geom_boxplot()
 
 ctable_tank_cause_transpose <- t(ctable_tank_cause)
@@ -1481,7 +1513,7 @@ ggplot(aes(x = Stage, y = percent, fill = Stage)) +
   scale_y_continuous(expand = expansion(mult = c(0, 0.1))) +
   labs(
     x = "Moult Stage",
-    y = "Percentage of Cannibalism Victims"
+    y = "Percentage of Cannibalism Mortalities"
   ) +
   theme_minimal(base_size = 14) +
   theme(
@@ -1519,7 +1551,7 @@ ggplot(aes(x = calc, y = percent, fill = calc)) +
   expand_limits(y = 20) +
   labs(
     x = "Moult Stage",
-    y = "Percentage of Cannibalism Victims"
+    y = "Percentage of Cannibalism Mortalities"
   ) +
   theme_minimal(base_size = 14) +
   theme(
