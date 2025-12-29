@@ -410,25 +410,25 @@ newdat$upr <- plogis(pred$fit + 1.96 * pred$se.fit)
 # Plot with ribbons for 95% CIs
 ggplot() +
   geom_line(data = newdat, aes(x = Day, y = fit, color = time, fill = time)) +
-  geom_ribbon(data = newdat, aes(x = Day, y = fit, color = time, fill = time, ymin = lwr, ymax = upr), alpha = 0.2, color = NA) +
+  geom_ribbon(data = newdat, aes(x = Day, y = fit, color = time, fill = time, ymin = lwr, ymax = upr), 
+              alpha = 0.2, color = NA) +
   labs(
     y = "Probability Cannibalized Crayfish is Uncalcified",
     x = "Time (Days)",
-    color = "Light Period",
-    fill = "Light Period"
+    color = " ",
+    fill = " "
   ) +
   geom_point(data = cann_by_moult, aes(x = Day, y = moult_bin, color = time),
-             position = position_jitter(height = 0.05, width = 0.25))+
-  theme_minimal(base_size = 14) +
-  theme(
-    legend.position = "right",
-    plot.title = element_text(hjust = 0.5),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.title.x = element_text(margin = margin(t = 15)),
-    axis.title.y = element_text(margin = margin(r = 15)),
-    axis.line = element_line(color = "black")
-  )
+             position = position_jitter(height = 0.05, width = 0.25)) +
+  scale_color_manual(
+    values = c("Day" = "#ff7f0e", "Night" = "#1f77b4"),  # keep or adjust colors
+    labels = c("Day" = "Photophase", "Night" = "Scotophase")
+  ) +
+  scale_fill_manual(
+    values = c("Day" = "#ff7f0e", "Night" = "#1f77b4"),  # same colors as above
+    labels = c("Day" = "Photophase", "Night" = "Scotophase")
+  ) +
+  theme_pubr()
 
 
 # plot without CI
@@ -842,7 +842,7 @@ pairwise_fisher_heat <- function(tab, alpha = 0.05) {
 
 ```
 
-### Obnoxious Bar Graphs for initial visualization ###
+### initial data visualization (not used) ###
 
 Bar chart for notable events in dif cams
 ```{r}
@@ -1023,17 +1023,16 @@ ggplot(aes(x = event_true_date, y = count, fill = event_type)) +
 ```
 
 
-## Initial data visualizations (not used) ##
 
 Moult/Mort visualization by tank frequency point graph thingy, kind of cool visualization 
-```{r Initial data vis}
-realtime_events %>%
-filter(event_type != "Test") %>%
-  filter(event_type != "Feed") %>%
-ggplot() +
-  geom_point(aes(x = event_true_datetime, y = factor(camera.x), color = event_type), size = 3) +
-  labs(x = "Time", y = "Tank", color = "Event Type") +
-  theme_minimal()
+```{r moult timing histogram}
+#realtime_events %>%
+#filter(event_type != "Test") %>%
+  #filter(event_type != "Feed") %>%
+#ggplot() +
+  #geom_point(aes(x = event_true_datetime, y = factor(camera.x), color = event_type), #size = 3) +
+  #labs(x = "Time", y = "Tank", color = "Event Type") +
+  #theme_minimal()
 
 rtv <- realtime_events %>%
   filter(event_type != "Test") %>%
@@ -1044,34 +1043,26 @@ rtv <- realtime_events %>%
   # create a column with the most recent feed (or other event, edit as needed) before each event
   mutate(last_feed_time = lag(ifelse(event_type == "Feed", event_true_datetime, NA))) %>%
   fill(last_feed_time, .direction = "down") %>%  # fill forward the last feed
- mutate(since_feed = as.numeric(difftime(event_true_datetime, last_feed_time, units = "hours"))) %>%
+mutate(since_feed = as.numeric(difftime(event_true_datetime, last_feed_time, units = "hours"))) %>%
   filter (event_type == "Moult") %>% #edit line for event of interest or comment out
-   filter (time_of_day == "am") %>% #edit line for time period of interest or comment out
+  filter (time_of_day == "pm") %>% #edit line for time period of interest or comment out
   ungroup()
 
-ks.test(rtv$since_feed, "punif", min = 0, max = 12)
-ks.test (rtv$num_time_only, "punif", min = 0, max = 24)
+#ks.test(rtv$since_feed, "punif", min = 0, max = 12)
+#ks.test (rtv$num_time_only, "punif", min = 0, max = 24)
 
-
+# To make 24 hour graph: change time_since_feed to num_time_only, comment out 
+#everything after the creation of num_time_only above (except moult filter)
 ggplot(rtv, aes(x = since_feed)) +
   geom_histogram(binwidth = 1, boundary = 0, fill = "steelblue", color = "black") +
   labs(
-    x = "Postprandial Time (Photophase, Hours)",
+    x = "Time (Hours, Scotophase)",
     y = "Number of Moults"
   ) +
   scale_x_continuous(limits = c(0, 12),
     breaks = seq(0, ceiling(max(rtv$since_feed)), by = 1),
   ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(hjust = 0.5),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.title.x = element_text(margin = margin(t = 15)),
-    axis.title.y = element_text(margin = margin(r = 15)),
-    axis.line = element_line(color = "black")
-  )
+  theme_pubr()
 ```
 
 ## Bar and box plots ##
@@ -1448,16 +1439,7 @@ ggplot(aes(x = Stage, y = percent, fill = Stage)) +
     x = "Moult Stage",
     y = "Percentage of Cannibalism Mortalities"
   ) +
-  theme_minimal(base_size = 14) +
-  theme(
-    legend.position = "none",
-    plot.title = element_text(hjust = 0.5),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.title.x = element_text(margin = margin(t = 15)),
-    axis.title.y = element_text(margin = margin(r = 15)),
-    axis.line = element_line(color = "black")
-  )
+  theme_pubr()
 
 ```
 
