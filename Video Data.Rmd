@@ -6,10 +6,7 @@ output: html_document
 ## Start up chunk ##
 
 Prep libraries and import datasheets
-```{r}
-
-obs <- c(14, 23)
-chisq.test(obs)
+```{r Startup chunk}
 
 library(tidyverse) #used
 library(coxme) # used
@@ -20,6 +17,7 @@ library(CoinCalc)
 library(Directional)
 library(bpnreg)
 library(cvequality)
+library(ggpubr)
 
 
 video_events <- read_csv("video Notable Events.csv")
@@ -39,7 +37,7 @@ treatments_morts_dets <- treatments_morts_dets %>%
 ## Data Wrangling ##
 
 Joining event data sheet with start/stop time sheet and manipulating to create a variable column for real event dates and times
-```{r}
+```{r Making realtime_events}
 #Test events (lights off known time 20:00) show all notable event times coming out within 1.5 seconds of each other accross cameras and within 1.5 seconds of the correct time (20:00). This should be more than sufficient for the timescales I'm working on. 
 
 realtime_events <- video_events %>%
@@ -62,7 +60,7 @@ realtime_events <- realtime_events %>%
 ```
 
 Adding AM/PM and rough time chunks to mortality details summary data frame
-```{r}
+```{r Adding to treatments_morts_dets}
 treatments_morts_dets <- treatments_morts_dets %>%
   mutate(time = ifelse(Day %% 1 == 0, "Night", "Day")) %>%
   mutate(third = case_when(
@@ -74,7 +72,7 @@ treatments_morts_dets <- treatments_morts_dets %>%
 ```
 
 Organizing carapace length data
-```{r}
+```{r Carapace length wrangling and tests}
 carapace_lengths <- carapace_lengths %>%
 mutate(Length = `Post-orbital Carapace Length (mm)`)
 
@@ -110,16 +108,15 @@ carapace_summary <- carapace_summary %>%
 ```
 
 Summary table event counts for ease of graphing 
-```{r}
+```{r Creating events_summary}
 events_summary <- realtime_events %>%
   mutate(event_true_date = as.Date(event_true_datetime)) %>% # this is important because in the original date column the date is the day the video started not the actual date (ie things that happen after midnight are not technically the correct date in the original)
   group_by(camera.x, event_true_date, event_type) %>%
   summarise(count = n(), .groups = "drop")
 ```
 
-
 Making appropriate data frame for survival curve
-```{r}
+```{r Making dataframes for surv curves}
 halfday_morts_long <-halfday_morts %>%
   pivot_longer(
     cols = starts_with("Morts"),
@@ -174,10 +171,10 @@ survival_for_curve <- survival_data %>%
 ```
 
 
-## Survival modeling and visualization between group and individual treatments ##
+## Survival modeling (stats and vis) ##
 
 Kaplan-meier curves and log-rank test for diff between curves, no ability to cluster by tank within group treatment
-```{r}
+```{r KM curves and log rank tests}
 
 #Make curve df without individuals
 survivalCurve_groupOnly <- survival_for_curve %>%
@@ -242,45 +239,8 @@ legend("center", legend = c( "Co-reared", "Isolated"),
 
 ```
 
-KM for cannibalism by moult stage (this is sort of weird, not sure if it's a good representation)
-```{r}
-
-#Make curve df for cannibalism by moult stage, censors pure moult failure death
-survivalCurve_cann <- treatments_morts_dets %>%
-  filter(treatment == "group") %>%
-  mutate(status = ifelse(Cause == "Moult Failure", 0, status))
-  
-#log rank between stages
-surv_objCANN <- Surv(time = survivalCurve_cann$Day, event = survivalCurve_cann$status)
-survdiff(surv_objCANN ~ Stage, data = survivalCurve_cann)
-
-# curve for just group morts that involved cannibalism by moult stage
-km_fit_cann <- survfit(Surv(Day, status) ~ Stage, data = survivalCurve_cann)
-
-
-#base r plot of kaplan meier with all tanks separated to show they have similar pattern
-
-plot(km_fit_cann, 
-     xlab = "Time (Days)", 
-     ylab = "Survival Probability",
-     lwd = 2, col = c("slategray4", "navyblue", "turquoise3", "steelblue3" )) 
-
-# Open a new plotting window (or PDF/PNG) to generate separate figure for legend so it is not ugly
-dev.new()  # on RStudio or base R; for saving use png()/pdf()
-
-# Empty plot
-plot.new()
-#generate legend for prev graph
-legend("center", legend = c( "Co-reared Survival Function", "Isolated Survival Function", "Co-reared Moults"),
-       col = c("steelblue3", "palegreen3", "grey" ), lwd = 2,
-       bty = "n")
-```
-
-
-## Cox Models ##
-
 Base Cox model + models for clustering
-```{r}
+```{r Base cox models (assumptions not met)}
 
 #Base cox model for treatment, does not meet ph
 fit_cox <- coxph(surv_obj ~ treatment, data = survival_for_curve)
@@ -323,7 +283,7 @@ AIC(fit_coxme, fit_coxph_cluster)
 ```
 
 Time varying options for cox model to show increase in hazard for co-reared late compared to early
-```{r}
+```{r Time varying cox models}
 #Is one or the other of these better? PH assumption can't be tested for TV because it obviously is intended to vary by time. Assumption is met for interval. Report both? 
 
 # Cox model with time-varying coefficient for treatment. tt term allows for interaction with log(time) to address the fact that the PH is not the same over time. Treatment is not significant, time-treatment is significant. Chat tells me this means there isn't a significant impact at the beginning but it increases significantly over time? True? 
@@ -375,8 +335,8 @@ plot(zph)
 ```
 
 Testing if linear or log-transformed t covariate cox is a better model 
-```{r}
-# Results are essentially the same, log AIC result is like 0.5 higher which allegedly means the models both fit about equally well. Go with log because everyone loves log time? 
+```{r Linear vs. log time for TV cox}
+# Results are essentially the same, log AIC result is like 0.5 higher which allegedly means the models both fit about equally well. Go with log because everyone loves log time 
 
 cox_linear <- coxph(Surv(Day, status) ~ treat_num + tt(treat_num) + cluster(Tank), 
                     data = survival_for_curve, 
@@ -387,10 +347,10 @@ cox_log <- cox_tv  # current model with log(t)
 AIC(cox_linear, cox_log)
 ```
 
-## Logistic Regressions ##
+## Binary Logistic Regressions (stats and vis) ##
 
 Moult stage x cannibalism binary logistic regression
-```{r}
+```{r Cannibalism by Moult Stage}
 # Binary encode cause
 cann_by_moult <- treatments_morts_dets %>%
   filter(treatment == "group") %>% 
@@ -501,7 +461,7 @@ ggplot() +
 ```
 
 Binary logistic regression for mortality between treatments.
-```{r}
+```{r Mortality by treatment}
 
 mort_treat <- treatments_morts_dets %>%
   filter(status == 1) %>%  
@@ -520,8 +480,8 @@ ggplot(mort_treat, aes(x = Day, y = treat_bin)) +
 
 ```
 
-Binary logistic regression for co-reared mortality between light and dark. and mort cause
-```{r}
+Binary logistic regression for co-reared mortality between light and dark
+```{r Mortality night vs day}
 
 mort_by_light <- video_events %>%
   filter(event_type == "Mortality") %>%
@@ -538,8 +498,10 @@ ggplot(binom_mort_light, aes(x = day_number, y = light_bin)) +
   xlab("Days")
 
 exp(confint(binom_mort_light))
+```
 
-#--------------------------------------------------------------------------------------------------
+Binary logistic regression by mortality cause
+```{r Mortality by cause}
 
 mort_by_cause <- treatments_morts_simplify %>%
   filter(treatment == "group") %>%
@@ -559,7 +521,7 @@ ggplot(binom_mort_cause, aes(x = Day, y = cause_bin)) +
 ```
 
 Binary logistic regression for co-reared moults between light and dark.
-```{r}
+```{r moults night vs day}
 
 simple_moult <- video_events %>%
   filter(event_type == "Moult")
@@ -594,7 +556,7 @@ exp(confint(binom_moult_light))
 
 ## Circular Stats and Temporal Correlation ##
 
-```{r}
+```{r Circular event occurance graphing}
 circ_events <- realtime_events %>%
   mutate (hours = as.numeric(format(event_true_datetime, "%H")) +
                      as.numeric(format(event_true_datetime, "%M"))/60) %>%
@@ -642,7 +604,7 @@ rose.diag(mort_circ_obj,
 ```
 
 Trying out other synchronicity things 
-```{r}
+```{r Playing with synchronicity}
 daily_moults <- realtime_events %>%
   filter(event_type == "Moult") %>%
   mutate(hour = floor_date(event_true_datetime, "day")) %>%
@@ -652,10 +614,10 @@ daily_moults <- realtime_events %>%
 ccf(daily_moults$`1`, daily_moults$`2`, lag.max = 24, main = "Tank 1 vs 2 (hourly CCF)")
 ```
 
-## Chi square/Fisher exact for comparisons without continuous time componant ##
+## Simple stats (fisher, chi, etc) ##
 
 Data formatting
-```{r}
+```{r Data wrangling and simple stats}
 
 #Attributing the causese that include both moult failure and cannibalism to the 'primary' cause of mortality IE did it start struggling with moulting or have a cannibalism attempt first? 
 treatments_morts_simplify <- treatments_morts_dets %>%
@@ -755,16 +717,18 @@ t.test(
 
 #fisher_by_category(ctable_stage)
 
+obs <- c(14, 23)
+chisq.test(obs)
 
 #code to look at chi square residuals as another check to see what's influencing significant differences (even if doesn't meet assumptions for chi), internet says absolute >2 is usually impactful
 chi <- chisq.test(ctable_time, simulate.p.value = TRUE)
 residuals <- (ctable_time - chi$expected) / sqrt(chi$expected)
 residuals
+
 ```
 
-
 Specific tests for slides
-```{r}
+```{r Preliminary stats for presentation}
 #following can be used with moult stage of mort etc. as well
 counts_stage_tank <- video_events %>%
   #filter(treatment == "group") %>%
@@ -808,7 +772,7 @@ fisher.test(mat)
 ```
 
 Function to run pairwise fisher for each category table columns
-```{r}
+```{r Fisher_by_category function}
 
 fisher_by_category <- function(tab) {
 results <- sapply(1:ncol(tab), function(i) {
@@ -835,7 +799,7 @@ cause_results
 ```
 
 Function to run all possible pairwaise fishers to determine where differences lie
-```{r}
+```{r pairwise_fisher funciton}
 pairwise_fisher_heat <- function(tab, alpha = 0.05) {
   if (!is.matrix(tab) & !is.table(tab)) stop("Input must be a matrix or table.")
   if (nrow(tab) < 2) stop("Table must have at least 2 rows for pairwise comparison.")
@@ -877,37 +841,6 @@ pairwise_fisher_heat <- function(tab, alpha = 0.05) {
 }
 
 ```
-
-Function for testing if chi square or fisher exact is more appropriate based on expected counts in contingency table
-```{R}
-
-expecteds <- function(tab) {
-  # tab = contingency table (matrix or from xtabs)
-  
-  # Run chi-square without printing immediately
-  chi <- suppressWarnings(chisq.test(tab))
-  
-  # Return expecteds
-  chi$expected
-  
-}
-
-#run_chi_or_fisher(table_x)
-```
-
-
-### Data wrangling WORK IN PROGRESS for possible competing hazard model for cause of death, not current priority. Turns categoricals into number codes in the dataset formatted for survival curves
-```{r}
-# Turning words into numbers for easier modeling
-# Causes of mortality
-cause_map <- c("Cannibalism" = 1, "Moult Failure" = 2, "Moult Failure + Cannibalism" = 3, "Cannibalism + Moult Failure" = 4, "Unknown" = 5)
-treatments_morts_dets$Cause <- cause_map[treatments_morts_dets$Cause]
-
-# Moult stage
-moult_map <- c("Pre-moult" = 1, "Moulting" = 2, "Post-moult" = 3, "Unknown" = 4)
-treatments_morts_dets$Stage <- moult_map[treatments_morts_dets$Stage]
-```
-
 
 ### Obnoxious Bar Graphs for initial visualization ###
 
@@ -1090,10 +1023,10 @@ ggplot(aes(x = event_true_date, y = count, fill = event_type)) +
 ```
 
 
-## Other initial visualizations ##
+## Initial data visualizations (not used) ##
 
 Moult/Mort visualization by tank frequency point graph thingy, kind of cool visualization 
-```{r}
+```{r Initial data vis}
 realtime_events %>%
 filter(event_type != "Test") %>%
   filter(event_type != "Feed") %>%
@@ -1141,10 +1074,10 @@ ggplot(rtv, aes(x = since_feed)) +
   )
 ```
 
-## Plots for presentation ##
+## Bar and box plots ##
 
 Bar plot percent mortality
-```{r}
+```{r Bar plot Mortality by treatment}
 plot_data <- treatments_morts_dets %>%
   group_by(treatment) %>%
   summarise(
@@ -1191,7 +1124,7 @@ ggplot(plot_data, aes(x = treatment, y = percent_dead, fill = treatment)) +
 ```
 
 Bar plot isolated treatment causes of mortality 
-```{r}
+```{r Bar plot isolated mort causes}
 treatments_morts_simplify %>%
   filter(treatment == "individual") %>%
     group_by(Cause) %>%
@@ -1226,7 +1159,7 @@ treatments_morts_simplify %>%
 ```
 
 Bar for full causes of mortality co-reared
-```{r}
+```{r Bar co-reared mort causes}
 
 treatments_morts_dets %>%
   filter(treatment == "group") %>%
@@ -1266,7 +1199,7 @@ treatments_morts_dets %>%
 ```
 
 Bar for condensed cause of mortality co-reared (with error bars)
-```{r}
+```{r Bar co-reared condensed mort causes %}
 
 tms1 <- treatments_morts_simplify %>%
    filter(treatment == "group") %>%
@@ -1329,7 +1262,7 @@ tms1 <- treatments_morts_simplify %>%
 ```
 
 Bar for condensed cause of mortality co-reared (Raw count)
-```{r}
+```{r Bar condensed co-reared mort causes raw}
 
 treatments_morts_simplify %>%
   filter(treatment == "group") %>%
@@ -1362,7 +1295,7 @@ treatments_morts_simplify %>%
 ```
 
 Bar plot isolated treatment causes of mortality  (raw counts)
-```{r}
+```{r Bar isolated mort causes raw}
 treatments_morts_simplify %>%
   filter(treatment == "individual") %>%
     group_by(Cause) %>%
@@ -1396,7 +1329,7 @@ treatments_morts_simplify %>%
 ```
 
 Both treatments stacked bar (raw count)
-```{r}
+```{r Stacked bar both treatments mort causes}
 
 treatments_morts_simplify %>%
     group_by(Cause, treatment) %>%
@@ -1432,7 +1365,7 @@ treatments_morts_simplify %>%
 ```
 
 Cannibalism by moult stage bar plot (error bars)
-```{r}
+```{r Bar cannibalism by moult stage}
 
 treatments_morts_simplify %>%
   filter(treatment == "group") %>%
@@ -1491,7 +1424,7 @@ treatments_morts_simplify %>%
 ```
 
 boxplot of above
-```{r}
+```{r Box cannibalism by moult stage}
 treatments_morts_simplify %>%
   filter(treatment == "group") %>%
   filter(Cause != "Moult Failure") %>%
@@ -1529,7 +1462,7 @@ ggplot(aes(x = Stage, y = percent, fill = Stage)) +
 ```
 
 boxplot by calcification
-```{r}
+```{r Box cannibalism by calcification}
 treatments_morts_simplify %>%
   filter(treatment == "group") %>%
   filter(Cause != "Moult Failure") %>%
@@ -1566,9 +1499,8 @@ ggplot(aes(x = calc, y = percent, fill = calc)) +
 
 ```
 
-
 Cannibalism by time, stacked by moult stage
-```{r}
+```{r Stacked bar cannibalism by moult stage over time}
 
 treatments_morts_dets %>%
   filter(treatment == "group") %>%
