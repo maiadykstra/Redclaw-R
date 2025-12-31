@@ -108,11 +108,43 @@ carapace_summary <- carapace_summary %>%
 ```
 
 Summary table event counts for ease of graphing 
-```{r Creating events_summary}
+```{r Summary tables and tests for moulting vs. mortality correlation}
 events_summary <- realtime_events %>%
   mutate(event_true_date = as.Date(event_true_datetime)) %>% # this is important because in the original date column the date is the day the video started not the actual date (ie things that happen after midnight are not technically the correct date in the original)
   group_by(camera.x, event_true_date, event_type) %>%
   summarise(count = n(), .groups = "drop")
+
+summary_simple <- events_summary %>%
+  filter(!event_type %in% c("Feed", "Test")) %>%
+  complete(event_true_date, event_type, fill = list(count = 0)) %>%
+group_by(event_true_date, event_type) %>%
+  summarise(
+    count = sum(count),
+    .groups = "drop"
+  )
+
+summary_wide <- summary_simple%>%
+  pivot_wider(
+    names_from  = event_type,
+    values_from = count,
+    values_fill = 0
+  )
+
+ggplot(summary_simple, aes(x = event_true_date, y = count, colour = event_type)) +
+  geom_line(linewidth = 1) +
+  geom_point(size = 2) +
+  theme_minimal() +
+  labs(
+    x = "Date",
+    y = "Daily count",
+    colour = "Event type"
+  )
+
+cor.test(
+  summary_wide$Moult,
+  summary_wide$Mortality,
+  method = "kendall"
+)
 ```
 
 Making appropriate data frame for survival curve
@@ -170,6 +202,10 @@ survival_for_curve <- survival_data %>%
 
 ```
 
+## More moults = More morts
+```{r Moults vs Morts scatter}
+ 
+```
 
 ## Survival modeling (stats and vis) ##
 
